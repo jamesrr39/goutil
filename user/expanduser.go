@@ -1,5 +1,9 @@
 package user
 
+import (
+	"strings"
+	"os/user"
+)
 
 // expand tilde.
 // Returns the resolved path, or an error from trying to resolve the current user
