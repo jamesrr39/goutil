@@ -7,3 +7,5 @@ utilities for go
 example import:
 
     go get github.com/jamesrr39/goutil/user
+
+godoc: https://godoc.org/github.com/jamesrr39/goutil
