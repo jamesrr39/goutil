@@ -13,8 +13,6 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
-var ErrBadExifOrientation = errors.New("no exif orientation metadata available for this image. (ExifOrientation = 0)")
-
 // RotateAndTransformPicture reads a file and uses the exif information contained within it to figure out what orientation and inversion it should be shown at as a human-usable image
 // if it doesn't find any orientatoin data, it will just return the original image
 func RotateAndTransformPicture(file io.Reader) (image.Image, error) {
@@ -57,7 +55,7 @@ func RotateAndTransformPictureByExifData(picture image.Image, exifData exif.Exif
 		return nil, err
 	}
 	if exifOrientation == 0 {
-		return nil, ErrBadExifOrientation
+		return picture, nil
 	}
 
 	return FlipAndRotatePictureByExif(picture, exifOrientation), nil
