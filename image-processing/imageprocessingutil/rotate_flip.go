@@ -2,7 +2,6 @@ package imageprocessingutil
 
 import (
 	"bytes"
-	"errors"
 	"image"
 	_ "image/gif"  // decode
 	_ "image/jpeg" // decode
