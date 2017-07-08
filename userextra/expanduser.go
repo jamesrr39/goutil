@@ -1,8 +1,8 @@
-package user
+package userextra
 
 import (
-	"strings"
 	"os/user"
+	"strings"
 )
 
 // expand tilde.
