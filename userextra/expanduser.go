@@ -1,12 +1,11 @@
-package user
+package userextra
 
 import (
-	"strings"
 	"os/user"
+	"strings"
 )
 
-// expand tilde.
-// Returns the resolved path, or an error from trying to resolve the current user
+// ExpandUser resolves a path starting with '~', or returns an error from trying to resolve the current user
 func ExpandUser(path string) (string, error) {
 	if !strings.HasPrefix(path, "~/") {
 		return path, nil
