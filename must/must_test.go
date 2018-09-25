@@ -3,6 +3,8 @@ package must
 import (
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,13 +25,12 @@ func Test_Mustf_NoError(t *testing.T) {
 	Mustf(nil, "")
 }
 
-
 func Test_Mustf_Error(t *testing.T) {
-        defer func() {
-                r := recover()
-		require.NotNil(t, r) // TODO test message
-        }()
+	defer func() {
+		r := recover()
+		require.NotNil(t, r)
+		assert.Equal(t, "deliberate test error: hello\nOriginal Error: test error", r.(string))
+	}()
 
-        Mustf(errors.New("test error"), "deliberate test error: %s", "hello")
+	Mustf(errors.New("test error"), "deliberate test error: %s", "hello")
 }
-
