@@ -7,6 +7,8 @@ import (
 
 type LogFunc func(message string, args ...interface{})
 
+// DBStateTracker is a tool that keeps track of your database.
+// It is used to keep a database up to date, given a list of changescripts.
 type DBStateTracker struct {
 	CreateVersionTableIfNotExistsSQL string // CREATE TABLE IF NOT EXISTS db_state (version int);
 	GetVersionSQL                    string // SELECT version FROM db_state

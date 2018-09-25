@@ -1,11 +1,10 @@
-package dbstatetrackertests
+package dbstatetracker
 
 import (
 	"database/sql"
 	"testing"
 
 	"github.com/cznic/ql"
-	"github.com/jamesrr39/goutil/dbstatetracker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +24,7 @@ var changescripts = []string{`
   `}
 
 func Test_QlDB(t *testing.T) {
-	tracker := dbstatetracker.NewDBStateTrackerForQLDB(discardLogFunc)
+	tracker := NewDBStateTrackerForQLDB(discardLogFunc)
 	db, err := sql.Open("ql-mem", "test")
 	require.Nil(t, err)
 
