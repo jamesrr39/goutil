@@ -3,5 +3,8 @@ language: go
 go:
   - tip
 
+install:
+  - go get github.com/stretchr/testify/...
+
 script:
   - make test
