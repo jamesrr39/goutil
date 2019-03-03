@@ -13,8 +13,13 @@ import (
 	"strings"
 )
 
+const (
+	replaceString       = "errors.WithStack(err)"
+	errorsPkgImportPath = "github.com/pkg/errors"
+)
+
 var usage = func() {
-	fmt.Println(`a script for replacing "return err" with return errors.WithStack(err)`)
+	fmt.Printf(`a script for replacing "return err" with return %q\n`, replaceString)
 }
 
 func main() {
@@ -23,14 +28,19 @@ func main() {
 	flag.Parse()
 	basePath := flag.Arg(0)
 
-	err := run(basePath, *shouldReplace)
+	allSuccess, err := run(basePath, *shouldReplace)
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	if !allSuccess {
+		os.Exit(1)
+	}
 }
 
-func run(basePath string, shouldReplace bool) error {
-	return filepath.Walk(basePath, func(path string, fileInfo os.FileInfo, err error) error {
+func run(basePath string, shouldReplace bool) (allSuccess bool, err error) {
+	allSuccess = true
+	err = filepath.Walk(basePath, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -49,20 +59,30 @@ func run(basePath string, shouldReplace bool) error {
 			return nil
 		}
 
-		return runFile(path, fileInfo, shouldReplace)
+		ok, err := runFile(path, fileInfo, shouldReplace)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			allSuccess = false
+		}
+
+		return nil
 	})
+	return allSuccess, err
 }
 
-func runFile(filePath string, fileInfo os.FileInfo, replace bool) error {
+func runFile(filePath string, fileInfo os.FileInfo, replace bool) (bool, error) {
 	fileBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return err
+		return false, err
 	}
 	sourceCode := string(fileBytes)
 
 	parsedFile, err := parser.ParseFile(token.NewFileSet(), "", sourceCode, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	var nodes []ast.Expr
@@ -81,34 +101,47 @@ func runFile(filePath string, fileInfo os.FileInfo, replace bool) error {
 		return true
 	})
 
-	if replace && len(nodes) > 0 {
-		for i := len(nodes) - 1; i >= 0; i-- {
-			node := nodes[i]
-			sourceCode = fmt.Sprintf("%serrors.WithStack(err)%s", sourceCode[:node.Pos()-1], sourceCode[node.End()-1:])
+	if len(nodes) == 0 {
+		return false, nil
+	}
+
+	if replace {
+		return true, replaceFileContents(filePath, fileInfo, sourceCode, nodes, parsedFile)
+	}
+	for _, node := range nodes {
+		fmt.Printf("found unwrapped err in %s (pos %d-%d)\n", filePath, node.Pos(), node.End())
+	}
+	return false, nil
+}
+
+func replaceFileContents(filePath string, fileInfo os.FileInfo, sourceCode string, nodes []ast.Expr, parsedFile *ast.File) error {
+
+	for i := len(nodes) - 1; i >= 0; i-- {
+		node := nodes[i]
+		sourceCode = fmt.Sprintf("%s%s%s", sourceCode[:node.Pos()-1], replaceString, sourceCode[node.End()-1:])
+	}
+
+	containsPkgErrors := false
+	for _, importStmt := range parsedFile.Imports {
+		if importStmt.Path.Value == fmt.Sprintf(`"%s"`, errorsPkgImportPath) {
+			containsPkgErrors = true
+		}
+	}
+
+	if !containsPkgErrors {
+		if len(parsedFile.Imports) == 0 {
+			return fmt.Errorf("TODO: no imports in %s, please add %q import by hand", filePath, errorsPkgImportPath)
 		}
 
-		containsPkgErrors := false
-		for _, importStmt := range parsedFile.Imports {
-			if importStmt.Path.Value == `"github.com/pkg/errors"` {
-				containsPkgErrors = true
-			}
-		}
+		lastImport := parsedFile.Imports[len(parsedFile.Imports)-1]
+		sourceCode = fmt.Sprintf(`%s
+	"%s"
+%s`, sourceCode[:lastImport.End()], errorsPkgImportPath, sourceCode[lastImport.End():])
+	}
 
-		if !containsPkgErrors {
-			if len(parsedFile.Imports) == 0 {
-				return fmt.Errorf("TODO: no imports in %s, please add github.com/pkg/errors import by hand", filePath)
-			}
-
-			lastImport := parsedFile.Imports[len(parsedFile.Imports)-1]
-			sourceCode = fmt.Sprintf(`%s
-	"github.com/pkg/errors"
-%s`, sourceCode[:lastImport.End()], sourceCode[lastImport.End():])
-		}
-
-		err = ioutil.WriteFile(filePath, []byte(sourceCode), fileInfo.Mode())
-		if err != nil {
-			return err
-		}
+	err := ioutil.WriteFile(filePath, []byte(sourceCode), fileInfo.Mode())
+	if err != nil {
+		return err
 	}
 
 	return nil
