@@ -3,59 +3,86 @@ package errorsx
 import (
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"strings"
 )
 
-type Error struct {
-	OriginalError       error
-	ExtraContextMessage string
-	Stack               []byte
+type kvPairsMapType map[interface{}]interface{}
+
+type Error interface {
+	Error() string
+	Stack() []byte
 }
 
-const indent = "\t"
+type Err struct {
+	err     error
+	kvPairs kvPairsMapType
+	stack   []byte
+}
 
-func (e *Error) message() string {
-	errMessage := e.OriginalError.Error()
+func (err *Err) Stack() []byte {
+	return err.stack
+}
 
-	if e.ExtraContextMessage != "" {
-		errMessage += "\n" + e.ExtraContextMessage
+func (err *Err) Error() string {
+	var s = err.err.Error()
+	var kvStrings []string
+	for key, val := range err.kvPairs {
+		kvStrings = append(kvStrings, fmt.Sprintf("%s=%q", key, val))
 	}
-
-	return errMessage
+	if len(kvStrings) > 0 {
+		sort.Slice(kvStrings, func(i, j int) bool {
+			return kvStrings[i] < kvStrings[j]
+		})
+		s += fmt.Sprintf(" [%s]", strings.Join(kvStrings, ", "))
+	}
+	return s
 }
 
-func (e *Error) Error() string {
-	return e.message() + "\n" + e.prettyStackTrace()
-}
-
-func (e *Error) prettyStackTrace() string {
-	stackLines := strings.Split(string(e.Stack), "\n")
-	stackString := strings.Join(stackLines, "\n"+indent)
-
-	return stackString
-}
-
-func newError(err error, extraContextMessage string) *Error {
-	return &Error{
-		err,
-		extraContextMessage,
+func Errorf(message string, args ...interface{}) Error {
+	return &Err{
+		fmt.Errorf(message, args...),
+		make(kvPairsMapType),
 		debug.Stack(),
 	}
 }
 
-func New(message string, args ...interface{}) *Error {
-	return newError(fmt.Errorf(message, args...), "")
+func Wrap(err error, kvPairs ...interface{}) Error {
+	if err == nil {
+		return nil
+	}
+
+	kvPairsMap := make(kvPairsMapType)
+	for i := 0; i < len(kvPairs); i = i + 2 {
+		k := kvPairs[i]
+		v := kvPairs[i+1]
+		kvPairsMap[k] = v
+	}
+
+	errType, ok := err.(*Err)
+	if !ok {
+		return &Err{
+			err,
+			kvPairsMap,
+			debug.Stack(),
+		}
+	}
+
+	// merge in kv map
+	for k, v := range kvPairsMap {
+		errType.kvPairs[k] = v
+	}
+
+	return errType
 }
 
-func Wrap(err error) *Error {
-	return newError(err, "")
-}
+// Cause fetches the underlying cause of the error
+// this should be used with errors wrapped from errors.New()
+func Cause(err error) error {
+	errErr, ok := err.(*Err)
+	if ok {
+		return Cause(errErr.err)
+	}
 
-func Wrapf(err error, extraContextMessage string, args ...interface{}) *Error {
-	return newError(err, fmt.Sprintf(extraContextMessage, args...))
-}
-
-func IsErrorx(err error) (*Error, bool) {
-	errx, ok := err.(*Error)
-	return errx, ok
+	return err
 }

@@ -9,13 +9,13 @@ type logger interface {
 	Error(message string, args ...interface{})
 }
 
-func HTTPError(w http.ResponseWriter, log logger, err *Error, statusCode int) {
+func HTTPError(w http.ResponseWriter, log logger, err Error, statusCode int) {
 	w.WriteHeader(statusCode)
 	if statusCode < 500 {
-		log.Warn(err.Error())
+		log.Warn("%s. Stack trace:\n%s", err.Error(), err.Stack())
 	} else {
-		log.Error(err.Error())
+		log.Error("%s. Stack trace:\n%s", err.Error(), err.Stack())
 	}
 
-	w.Write([]byte(err.message()))
+	w.Write([]byte(err.Error()))
 }

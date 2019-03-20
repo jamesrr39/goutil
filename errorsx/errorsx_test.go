@@ -1,13 +1,47 @@
 package errorsx
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_Error_Error(t *testing.T) {
-	err := New("test error")
-	assert.Contains(t, string(err.Stack), "\n")
-	assert.Equal(t, "", err.Error())
+	err := Errorf("test error created by: %q", "test user")
+	assert.Equal(t, "test error created by: \"test user\"", err.Error())
+	assert.NotEmpty(t, err.Stack)
+
+	err2 := Wrap(err)
+	assert.Equal(t, "test error created by: \"test user\"", err2.Error())
+	assert.NotEmpty(t, err2.Stack)
+
+	// stacks should be different
+	assert.NotEqual(t, err.Stack, err2.Stack)
+}
+
+func Test_Error_Cause_new(t *testing.T) {
+	err := errors.New("test error")
+	err2 := Wrap(err)
+	err3 := Wrap(err2)
+
+	assert.Equal(t, err, Cause(err2))
+	assert.Equal(t, err, Cause(err3))
+}
+
+func Test_Error_kv(t *testing.T) {
+	err := errors.New("test error")
+	err = Wrap(err, "k1", "v1", "k2", "v2")
+	err = Wrap(err, "k3", "v3")
+
+	assert.Equal(t, `test error [k1="v1", k2="v2", k3="v3"]`, err.Error())
+}
+
+func Test_Wrap(t *testing.T) {
+	err := Errorf("test error")
+	err2 := Wrap(err)
+	err3 := Wrap(err2)
+
+	assert.Equal(t, err.Stack(), err2.Stack())
+	assert.Equal(t, err2.Stack(), err3.Stack())
 }
