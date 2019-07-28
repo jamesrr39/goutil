@@ -16,8 +16,8 @@ func Test_Error_Error(t *testing.T) {
 	assert.Equal(t, "test error created by: \"test user\"", err2.Error())
 	assert.NotEmpty(t, err2.Stack)
 
-	// stacks should be different
-	assert.NotEqual(t, err.Stack, err2.Stack)
+	// stacks should be the same (should take the stack from err)
+	assert.Equal(t, err.Stack(), err2.Stack())
 }
 
 func Test_Error_Cause_new(t *testing.T) {
