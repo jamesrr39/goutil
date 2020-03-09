@@ -5,35 +5,86 @@ import (
 	"io"
 )
 
-// StreamToStorageWriter is a writer for writing streams of messages to a writer.
-// Writes are not synchronized, the caller must provide the synchronization if it will be written to from multiple goroutines.
-type StreamToStorageWriter struct {
+// Writer is a writer for writing streams of messages to a writer.
+// The caller must provide synchronization for this writer; or use the SynchronizedWriter provided.
+type Writer struct {
 	file io.Writer
 }
 
-func NewStreamToStorageWriter(file io.Writer) *StreamToStorageWriter {
-	return &StreamToStorageWriter{file}
+func NewWriter(file io.Writer) *Writer {
+	return &Writer{file}
 }
 
-func (s *StreamToStorageWriter) Write(message []byte) error {
+func (s *Writer) Write(message []byte) (int, error) {
+	messageWithLen := makeMessageWithLen(message)
+
+	return s.file.Write(messageWithLen)
+}
+
+func makeMessageWithLen(message []byte) []byte {
+
 	lenBuffer := make([]byte, 8)
 	binary.LittleEndian.PutUint64(lenBuffer, uint64(len(message)))
 
-	_, err := s.file.Write(append(lenBuffer, message...))
-	return err
+	messageWithLen := append(lenBuffer, message...)
+
+	return messageWithLen
 }
 
-type StreamToStorageReader struct {
+type synchronizedWriteMessage struct {
+	MessageWithLen []byte
+	OnFinishedChan chan (respType)
+}
+
+type SynchronizedWriter struct {
+	writer    io.Writer
+	writeChan chan (*synchronizedWriteMessage)
+}
+
+func NewSynchronizedWriter(file io.Writer) *SynchronizedWriter {
+	w := &SynchronizedWriter{file, make(chan (*synchronizedWriteMessage))}
+
+	go func() {
+		for {
+			message := <-w.writeChan
+			c, err := w.writer.Write(message.MessageWithLen)
+
+			message.OnFinishedChan <- respType{c, err}
+		}
+	}()
+
+	return w
+}
+
+type respType struct {
+	count int
+	err   error
+}
+
+func (s *SynchronizedWriter) Write(message []byte) (int, error) {
+	syncMessage := &synchronizedWriteMessage{
+		MessageWithLen: makeMessageWithLen(message),
+		OnFinishedChan: make(chan (respType)),
+	}
+
+	s.writeChan <- syncMessage
+
+	resp := <-syncMessage.OnFinishedChan
+
+	return resp.count, resp.err
+}
+
+type Reader struct {
 	file io.Reader
 }
 
-func NewStreamToStorageReader(file io.Reader) *StreamToStorageReader {
-	return &StreamToStorageReader{file}
+func NewReader(file io.Reader) *Reader {
+	return &Reader{file}
 }
 
 // ReadNextMessage reads the next message from the reader (starting from the beginning)
 // Once the end of the reader has been reached, an io.EOF error is returned.
-func (sr *StreamToStorageReader) ReadNextMessage() ([]byte, error) {
+func (sr *Reader) ReadNextMessage() ([]byte, error) {
 	lenBuffer := make([]byte, 8)
 	_, err := sr.file.Read(lenBuffer)
 	if err != nil {
