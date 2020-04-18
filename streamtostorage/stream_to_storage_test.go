@@ -2,7 +2,10 @@ package streamtostorage
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,5 +75,57 @@ func TestSynchronizedWriter_Write(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantBytes, tt.writer.writer.(*bytes.Buffer).Bytes())
 		})
+	}
+}
+
+// Test_synchronizedWrites tests concurrent synchronized writes
+func Test_synchronizedWrites(t *testing.T) {
+	bb := bytes.NewBuffer(nil)
+
+	w := NewSynchronizedWriter(bb)
+
+	haveSeenNumYetMap := make(map[string]bool)
+
+	bottomLimit := 0
+	topLimit := 50
+
+	var wg sync.WaitGroup
+	for i := bottomLimit; i < topLimit; i++ {
+		wg.Add(1)
+
+		val := fmt.Sprintf("%d", i)
+
+		haveSeenNumYetMap[val] = false
+
+		go func() {
+			defer wg.Done()
+			_, err := w.Write([]byte(val))
+			require.NoError(t, err)
+		}()
+	}
+
+	wg.Wait()
+
+	r := NewReader(bb)
+	for {
+		b, err := r.ReadNextMessage()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+
+		val, err := strconv.Atoi(string(b))
+		require.NoError(t, err)
+
+		assert.True(t, val >= bottomLimit)
+		assert.True(t, val < topLimit)
+		assert.Equal(t, false, haveSeenNumYetMap[string(b)])
+
+		// all checks done, mark value as seen
+		haveSeenNumYetMap[string(b)] = true
+	}
+
+	for k, v := range haveSeenNumYetMap {
+		assert.True(t, v, "hasn't seen val %v", k)
 	}
 }
