@@ -12,6 +12,8 @@ const (
 type BinarySearchFunc func(i int) SearchResult
 
 const (
+	// maxBinarySearchIterations is the maximum amount of iterations allowed before a panic is created.
+	// since the worst case time complexity of binary search is log(2)n, n = 100000 allows for a huge amount of items to be tested
 	maxBinarySearchIterations = 100000
 )
 
