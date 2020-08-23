@@ -20,16 +20,20 @@ const (
 
 func Test_WriteRead(t *testing.T) {
 	bb := bytes.NewBuffer(nil)
-	writer := NewWriter(bb)
+	writer, err := NewWriter(bb, MessageSizeBufferLenDefault)
+	require.Nil(t, err)
+
+	// write messages
 	i, err := writer.Write([]byte(message1))
 	require.Nil(t, err)
-	require.Equal(t, len(message1)+uint64SizeBytes, i)
+	require.Equal(t, len(message1), i)
 
 	i, err = writer.Write([]byte(message2))
 	require.Nil(t, err)
-	require.Equal(t, len(message2)+uint64SizeBytes, i)
+	require.Equal(t, len(message2), i)
 
-	reader := NewReader(bb)
+	// read messages
+	reader := NewReader(bb, MessageSizeBufferLenDefault)
 	message, err := reader.ReadNextMessage()
 	require.Nil(t, err)
 	assert.Equal(t, []byte(message1), message)
@@ -43,25 +47,26 @@ func Test_WriteRead(t *testing.T) {
 }
 
 func TestSynchronizedWriter_Write(t *testing.T) {
+	sw, err := NewSynchronizedWriter(bytes.NewBuffer(nil), MessageSizeBufferLenDefault)
+	require.NoError(t, err)
+
 	type args struct {
 		message []byte
 	}
 	tests := []struct {
-		name      string
-		writer    *SynchronizedWriter
-		args      args
-		want      int
-		wantErr   bool
-		wantBytes []byte
+		name    string
+		writer  *SynchronizedWriter
+		args    args
+		want    int
+		wantErr bool
 	}{
 		{
 			name:   "simple write",
-			writer: NewSynchronizedWriter(bytes.NewBuffer(nil)),
+			writer: sw,
 			args: args{
 				message: []byte("hello"),
 			},
-			want:      8 + 5, // 8 byte length size, 5 byte "hello"
-			wantBytes: []byte{0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x68, 0x65, 0x6c, 0x6c, 0x6f},
+			want: 5,
 		},
 	}
 	for _, tt := range tests {
@@ -73,7 +78,6 @@ func TestSynchronizedWriter_Write(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.wantBytes, tt.writer.writer.(*bytes.Buffer).Bytes())
 		})
 	}
 }
@@ -82,7 +86,8 @@ func TestSynchronizedWriter_Write(t *testing.T) {
 func Test_synchronizedWrites(t *testing.T) {
 	bb := bytes.NewBuffer(nil)
 
-	w := NewSynchronizedWriter(bb)
+	w, err := NewSynchronizedWriter(bb, MessageSizeBufferLenDefault)
+	require.NoError(t, err)
 
 	haveSeenNumYetMap := make(map[string]bool)
 
@@ -106,7 +111,7 @@ func Test_synchronizedWrites(t *testing.T) {
 
 	wg.Wait()
 
-	r := NewReader(bb)
+	r := NewReader(bb, MessageSizeBufferLenDefault)
 	for {
 		b, err := r.ReadNextMessage()
 		if err == io.EOF {
@@ -127,5 +132,37 @@ func Test_synchronizedWrites(t *testing.T) {
 
 	for k, v := range haveSeenNumYetMap {
 		assert.True(t, v, "hasn't seen val %v", k)
+	}
+}
+
+func Test_getMaxMessageSize(t *testing.T) {
+	type args struct {
+		messageSizeBufferLen MessageSizeBufferLen
+	}
+	tests := []struct {
+		name string
+		args args
+		want uint64
+	}{
+		{
+			name: "MessageSizeBufferLenSmall",
+			args: args{MessageSizeBufferLenSmall},
+			want: 65536,
+		}, {
+			name: "MessageSizeBufferLenDefault",
+			args: args{MessageSizeBufferLenDefault},
+			want: 4294967296,
+		}, {
+			name: "MessageSizeBufferLenLegacy",
+			args: args{MessageSizeBufferLenLegacy},
+			want: 18446744073709551615,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getMaxMessageSize(tt.args.messageSizeBufferLen); got != tt.want {
+				t.Errorf("getMaxMessageSize() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
