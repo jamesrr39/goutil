@@ -9,22 +9,15 @@ import (
 	"strings"
 
 	"github.com/boltdb/bolt"
-	"github.com/go-chi/chi"
 	"github.com/jamesrr39/goutil/errorsx"
 )
-
-type Handler struct {
-	dbConn   *bolt.DB
-	rootTmpl *template.Template
-	chi.Router
-}
 
 type TemplateMap struct {
 	PrintKey   func(pair KVPairDisplay) string
 	PrintValue func(pair KVPairDisplay) string
 }
 
-func NewHandler(dbConn *bolt.DB, templateMap TemplateMap, uniqueID string) (*Handler, error) {
+func NewHandlerFunc(dbConn *bolt.DB, templateMap TemplateMap, uniqueID string) (http.HandlerFunc, errorsx.Error) {
 	rootTmpl, err := template.New("boltviz_root_" + uniqueID).
 		Funcs(template.FuncMap{
 			"printKey":   templateMap.PrintKey,
@@ -36,45 +29,42 @@ func NewHandler(dbConn *bolt.DB, templateMap TemplateMap, uniqueID string) (*Han
 		return nil, errorsx.Wrap(err)
 	}
 
-	h := &Handler{dbConn, rootTmpl, chi.NewRouter()}
+	return func(w http.ResponseWriter, r *http.Request) {
+		tx, err := dbConn.Begin(false)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		defer tx.Rollback()
 
-	h.Router.Get("/*", h.handleGet)
-	return h, nil
-}
+		fragments := filterOutEmptyStrings(
+			strings.Split(
+				strings.TrimPrefix(r.URL.Path, "/"),
+				"/",
+			),
+		)
 
-func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
-	tx, err := h.dbConn.Begin(false)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	defer tx.Rollback()
+		pageStr := r.URL.Query().Get("page")
+		if pageStr == "" {
+			pageStr = "1"
+		}
 
-	fragments := filterOutEmptyStrings(
-		strings.Split(
-			strings.TrimPrefix(r.URL.Path, "/"),
-			"/",
-		),
-	)
+		page, err := strconv.ParseUint(pageStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	pageStr := r.URL.Query().Get("page")
-	if pageStr == "" {
-		pageStr = "1"
-	}
+		renderer := &rendererType{
+			PageNumber:      page,
+			Req:             r,
+			RespWriter:      w,
+			Base64Fragments: fragments,
+			rootTmpl:        rootTmpl,
+		}
 
-	page, err := strconv.ParseUint(pageStr, 10, 64)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-
-	renderer := &rendererType{
-		PageNumber:      page,
-		Req:             r,
-		RespWriter:      w,
-		Base64Fragments: fragments,
-	}
-
-	h.renderBucket(tx, renderer)
+		renderBucket(tx, renderer)
+	}, nil
 }
 
 type rendererType struct {
@@ -82,6 +72,7 @@ type rendererType struct {
 	Req             *http.Request
 	RespWriter      http.ResponseWriter
 	Base64Fragments []string
+	rootTmpl        *template.Template
 }
 
 type bucketData struct {
@@ -160,7 +151,7 @@ func (renderer *rendererType) makeBucketData(cursor *bolt.Cursor, bucketName str
 	return data
 }
 
-func (h *Handler) renderBucket(tx *bolt.Tx, renderer *rendererType) {
+func renderBucket(tx *bolt.Tx, renderer *rendererType) {
 	var bucketNames []string
 	cursor := tx.Cursor()
 
@@ -186,13 +177,9 @@ func (h *Handler) renderBucket(tx *bolt.Tx, renderer *rendererType) {
 
 	data := renderer.makeBucketData(cursor, bucketName)
 
-	h.renderData(renderer.RespWriter, data)
-}
-
-func (h *Handler) renderData(w http.ResponseWriter, data *rootData) {
-	err := h.rootTmpl.Execute(w, data)
+	err := renderer.rootTmpl.Execute(renderer.RespWriter, data)
 	if err != nil {
-		renderError(w, err, 500)
+		renderError(renderer.RespWriter, err, 500)
 		return
 	}
 }
