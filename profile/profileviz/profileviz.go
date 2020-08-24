@@ -21,7 +21,7 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 
 	runs := []profile.Run{}
 
-	reader := streamtostorage.NewReader(file)
+	reader := streamtostorage.NewReader(file, streamtostorage.MessageSizeBufferLenDefault)
 	for {
 		b, err := reader.ReadNextMessage()
 		if err != nil {
