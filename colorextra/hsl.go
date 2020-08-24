@@ -3,6 +3,8 @@ package colorextra
 import (
 	"image/color"
 	"math"
+
+	"github.com/jamesrr39/goutil/validation"
 )
 
 type HSLColor struct {
@@ -10,6 +12,38 @@ type HSLColor struct {
 	S float64 // 0 <= S <= 1
 	L float64 // 0 <= L <= 1
 	A uint8
+}
+
+func NewHSLColor(h, s, l float64, a uint8) (HSLColor, error) {
+	hslRangeValidations := []validation.RangeValidation{
+		{
+			Name:       "hue",
+			Value:      h,
+			LowerBound: 0,
+			UpperBound: 360,
+		},
+		{
+			Name:       "saturation",
+			Value:      s,
+			LowerBound: 0,
+			UpperBound: 1,
+		},
+		{
+			Name:       "luminosity",
+			Value:      l,
+			LowerBound: 0,
+			UpperBound: 1,
+		},
+	}
+
+	for _, rangeValidation := range hslRangeValidations {
+		err := validation.AssertInRangeFloat64(rangeValidation)
+		if err != nil {
+			return HSLColor{}, err
+		}
+	}
+
+	return HSLColor{h, s, l, a}, nil
 }
 
 func NewHSLFromRGB(rgb color.RGBA) HSLColor {
@@ -48,12 +82,13 @@ func zeroToOneColorToUint32(in float64) uint32 {
 }
 
 func (hsl HSLColor) RGBA() (uint32, uint32, uint32, uint32) {
+	a := ConvertUint8ToUint32Color(hsl.A)
 	if hsl.S == 0 {
 		// achromatic (gray)
 
 		result := zeroToOneColorToUint32(hsl.L)
 
-		return result, result, result, 0
+		return result, result, result, a
 	}
 
 	var q float64
@@ -68,7 +103,7 @@ func (hsl HSLColor) RGBA() (uint32, uint32, uint32, uint32) {
 	g := hueToRGB(p, q, hsl.H)
 	b := hueToRGB(p, q, hsl.H-120)
 
-	return zeroToOneColorToUint32(r), zeroToOneColorToUint32(g), zeroToOneColorToUint32(b), uint32(hsl.A) * maxUint24
+	return zeroToOneColorToUint32(r), zeroToOneColorToUint32(g), zeroToOneColorToUint32(b), a
 }
 
 const (

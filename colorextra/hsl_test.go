@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewHSLFromRGB(t *testing.T) {
@@ -50,4 +51,12 @@ func TestHSLColor_RGBA(t *testing.T) {
 		assert.Equal(t, expectedG, g, fmt.Sprintf("color: %q, green component", testColor.Name))
 		assert.Equal(t, expectedB, b, fmt.Sprintf("color: %q, blue component", testColor.Name))
 	}
+
+	t.Run("alpha", func(t *testing.T) {
+		alpha, err := NewHSLColor(0, 0, 0, 0xff)
+		require.NoError(t, err)
+
+		_, _, _, a := alpha.RGBA()
+		assert.Equal(t, uint32(65535), a)
+	})
 }

@@ -3,6 +3,8 @@ package colorextra
 import (
 	"image/color"
 	"math"
+
+	"github.com/jamesrr39/goutil/validation"
 )
 
 type HSVColor struct {
@@ -10,6 +12,38 @@ type HSVColor struct {
 	S float64 // 0 <= S <= 1
 	V float64 // 0 <= V <= 1
 	A uint8
+}
+
+func NewHSVColor(h, s, v float64, a uint8) (HSVColor, error) {
+	hsvRangeValidations := []validation.RangeValidation{
+		{
+			Name:       "hue",
+			Value:      h,
+			LowerBound: 0,
+			UpperBound: 360,
+		},
+		{
+			Name:       "saturation",
+			Value:      s,
+			LowerBound: 0,
+			UpperBound: 1,
+		},
+		{
+			Name:       "value",
+			Value:      v,
+			LowerBound: 0,
+			UpperBound: 1,
+		},
+	}
+
+	for _, rangeValidation := range hsvRangeValidations {
+		err := validation.AssertInRangeFloat64(rangeValidation)
+		if err != nil {
+			return HSVColor{}, err
+		}
+	}
+
+	return HSVColor{h, s, v, a}, nil
 }
 
 func NewHSVFromRGB(rgb color.RGBA) HSVColor {
