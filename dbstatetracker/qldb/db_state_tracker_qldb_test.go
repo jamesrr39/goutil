@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/cznic/ql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"modernc.org/ql"
+
+	"github.com/jamesrr39/goutil/dbstatetracker"
 )
 
 func init() {
@@ -24,7 +26,7 @@ var changescripts = []string{`
   `}
 
 func Test_QlDB(t *testing.T) {
-	tracker := NewDBStateTrackerForQLDB(discardLogFunc)
+	tracker := dbstatetracker.NewDBStateTrackerForQLDB(discardLogFunc)
 	db, err := sql.Open("ql-mem", "test")
 	require.Nil(t, err)
 
