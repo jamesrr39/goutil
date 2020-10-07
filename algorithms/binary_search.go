@@ -3,8 +3,11 @@ package algorithms
 type SearchResult int
 
 const (
+	// SearchResultFound indicates the desired result has been found and the search should terminate
 	SearchResultFound SearchResult = iota
+	// SearchResultGoLower indicates the search should look lower
 	SearchResultGoLower
+	// SearchResultGoHigher indicates the search should look higher
 	SearchResultGoHigher
 )
 
@@ -20,6 +23,12 @@ const (
 // BinarySearch performs a binary search on a given list size and binary search function
 // It returns the index of the last value tested it could find, and a boolean indicating whether the value was found exactly
 func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, bool) {
+	if listSize == 0 {
+		// handle special case
+		return 0, false
+	}
+
+	// lowest and highest possible indexes
 	lowerBound := 0
 	upperBound := listSize - 1
 	i := (listSize - 1) / 2 // start halfway through the set
@@ -30,14 +39,20 @@ func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, bool) {
 		case SearchResultFound:
 			return i, true
 		case SearchResultGoLower:
-			upperBound = i
+			// what we're searching for is below i
+			// so set upperBound to be i - 1
+			upperBound = i - 1
 		case SearchResultGoHigher:
-			lowerBound = i
+			// what we're searching for is above i
+			// so set upperBound to be i + 1
+			lowerBound = i + 1
 		}
-		i = (lowerBound + upperBound) / 2
-		if i == lowerBound || i == upperBound {
+		if lowerBound > upperBound {
+			// we've exhausted the search space without finding anything
 			return i, false
 		}
+		i = (lowerBound + upperBound) / 2
+
 	}
 	panic("maxBinarySearchIterations reached")
 }

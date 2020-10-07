@@ -1,6 +1,16 @@
 package algorithms
 
-import "testing"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"testing"
+
+	"github.com/jamesrr39/goutil/binaryx"
+	"github.com/jamesrr39/goutil/errorsx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestBinarySearch(t *testing.T) {
 	listEvenLength := []int{1, 4, 6, 10, 34, 80}
@@ -53,7 +63,7 @@ func TestBinarySearch(t *testing.T) {
 					return SearchResultGoHigher
 				},
 			},
-			want:  2,
+			want:  3,
 			want1: false,
 		}, {
 			name: "example found list odd length",
@@ -133,7 +143,7 @@ func TestBinarySearch(t *testing.T) {
 					return SearchResultGoHigher
 				},
 			},
-			want:  4,
+			want:  5,
 			want1: false,
 		},
 	}
@@ -148,4 +158,56 @@ func TestBinarySearch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_17(t *testing.T) {
+	dataSet := []uint64{3, 5, 6, 7, 12, 14, 18, 22, 25, 30, 34, 42, 51, 63, 64, 65, 101}
+	var items [][]byte
+	for _, s := range dataSet {
+		b := binaryx.LittleEndianPutUint64(s)
+		items = append(items, b)
+	}
+
+	// setup search function
+	var binarySearchErr error
+	makeFunc := func(key []byte) BinarySearchFunc {
+		return func(i int) SearchResult {
+			thisKey := items[i]
+
+			// debug
+			println("checking out item", binary.LittleEndian.Uint64(thisKey), "idx", i)
+
+			if bytes.Equal(thisKey, key) {
+				return SearchResultFound
+			}
+
+			thisIsLarger, err := isKey1GreaterThanKey2CompareInt64Func(thisKey, key)
+			if err != nil {
+				binarySearchErr = err
+				return SearchResultFound
+			}
+
+			if thisIsLarger {
+				// this one is greater than the searched for. So look lower
+				return SearchResultGoLower
+			}
+
+			return SearchResultGoHigher
+		}
+	}
+
+	for i, item := range items {
+		t.Run(fmt.Sprintf("find %d, idx %d", dataSet[i], i), func(t *testing.T) {
+			idx, matchFound := BinarySearch(len(dataSet), makeFunc(item))
+			require.NoError(t, binarySearchErr)
+			assert.True(t, matchFound)
+			assert.Equal(t, i, idx)
+		})
+	}
+}
+
+func isKey1GreaterThanKey2CompareInt64Func(key1, key2 []byte) (bool, errorsx.Error) {
+	val1 := binary.LittleEndian.Uint64(key1)
+	val2 := binary.LittleEndian.Uint64(key2)
+	return val1 > val2, nil
 }
