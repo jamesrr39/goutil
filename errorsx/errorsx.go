@@ -28,8 +28,11 @@ func (err *Err) Error() string {
 	var s = err.err.Error()
 	var kvStrings []string
 	for key, val := range err.kvPairs {
-		kvStrings = append(kvStrings, fmt.Sprintf("%s=%q", key, val))
+		kvStrings = append(kvStrings, fmt.Sprintf("%s=%#v", key, val))
 	}
+	sort.Slice(kvStrings, func(i, j int) bool {
+		return kvStrings[i] < kvStrings[j]
+	})
 	if len(kvStrings) > 0 {
 		sort.Slice(kvStrings, func(i, j int) bool {
 			return kvStrings[i] < kvStrings[j]
