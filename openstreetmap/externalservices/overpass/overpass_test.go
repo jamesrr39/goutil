@@ -3,12 +3,11 @@ package overpass
 import (
 	"testing"
 
-	"github.com/jamesrr39/tracks-app/server/domain"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_formatBoundsToOverpassFormat(t *testing.T) {
-	bounds := &domain.ActivityBounds{
+	bounds := Bounds{
 		LatMin:  4.14,
 		LongMin: -73.73,
 		LatMax:  4.21,

@@ -9,57 +9,52 @@ import (
 	"time"
 
 	"github.com/jamesrr39/semaphore"
-	"github.com/jamesrr39/tracks-app/server/diskcache"
-	"github.com/jamesrr39/tracks-app/server/domain"
 )
 
-type OverpassNearbyCityDataFetcher struct {
-	Timeout   time.Duration
-	Sema      *semaphore.Semaphore
-	cacheConn *diskcache.Conn
+type Bounds struct {
+	LatMin  float64 `json:"latMin"`  // between -90 (south pole) and +90 (north pole)
+	LatMax  float64 `json:"latMax"`  // between -90 (south pole) and +90 (north pole)
+	LongMin float64 `json:"longMin"` // between -180 and +180
+	LongMax float64 `json:"longMax"` // between -180 and +
 }
 
-func NewOverpassNearbyCityDataFetcher(timeout time.Duration, maxConcurrentConnections uint, cacheConn *diskcache.Conn) *OverpassNearbyCityDataFetcher {
+type GeographicMapElement struct {
+	Tags struct {
+		Name  string `json:"name"`
+		Place string `json:"place"`
+		IsIn  string `json:"isIn"`
+	} `json:"tags"`
+}
+
+type OverpassNearbyCityDataFetcher struct {
+	Timeout time.Duration
+	Sema    *semaphore.Semaphore
+}
+
+func NewOverpassNearbyCityDataFetcher(timeout time.Duration, maxConcurrentConnections uint) *OverpassNearbyCityDataFetcher {
 	sema := semaphore.NewSemaphore(maxConcurrentConnections)
 
-	return &OverpassNearbyCityDataFetcher{timeout, sema, cacheConn}
+	return &OverpassNearbyCityDataFetcher{timeout, sema}
 }
 
-func (fetcher *OverpassNearbyCityDataFetcher) Fetch(activityBounds *domain.ActivityBounds) ([]*domain.GeographicMapElement, error) {
-	cachedData, err := diskcache.GetOverpassData(fetcher.cacheConn, activityBounds)
-	if nil != err {
-		log.Printf("ERROR: couldn't get cached overpass data for bounds '%v'. Fetching from API instead. Error: '%s'\n", activityBounds, err)
-	}
-
-	if nil != cachedData {
-		return cachedData.Elements, nil
-	}
-
+func (fetcher *OverpassNearbyCityDataFetcher) Fetch(bounds Bounds) ([]*GeographicMapElement, error) {
 	fetcher.Sema.Add()
 	defer fetcher.Sema.Done()
 
-	elements, err := fetcher.fetch(activityBounds)
+	elements, err := fetcher.fetch(bounds)
 	if nil != err {
 		return nil, err
-	}
-
-	err = diskcache.SetOverpassData(fetcher.cacheConn, activityBounds, elements)
-	if nil != err {
-		log.Printf("ERROR: couldn't cache overpass data for bounds '%v' and elements: '%v'. Error: '%s'\n", activityBounds, elements, err)
 	}
 
 	return elements, nil
 }
 
-func (fetcher *OverpassNearbyCityDataFetcher) fetch(activityBounds *domain.ActivityBounds) ([]*domain.GeographicMapElement, error) {
+func (fetcher *OverpassNearbyCityDataFetcher) fetch(bounds Bounds) ([]*GeographicMapElement, error) {
 	client := &http.Client{
 		Timeout: fetcher.Timeout,
 	}
 
-	url := fmt.Sprintf("https://overpass-api.de/api/interpreter?data=[out:json];node[\"place\"](%s);out;", formatBoundsToOverpassFormat(activityBounds))
-
-	// place name
-	//req, err := http.NewRequest("GET", "https://overpass-api.de/api/interpreter?data=node[name=\"London\"];out;", bytes.NewBuffer(nil))
+	url := fmt.Sprintf("https://overpass-api.de/api/interpreter?data=[out:json];node[\"place\"](%s);out;", formatBoundsToOverpassFormat(bounds))
 
 	resp, err := client.Get(url)
 	if nil != err {
@@ -82,12 +77,12 @@ func (fetcher *OverpassNearbyCityDataFetcher) fetch(activityBounds *domain.Activ
 	return overpassResponseObject.Elements, nil
 }
 
-func formatBoundsToOverpassFormat(activityBounds *domain.ActivityBounds) string {
+func formatBoundsToOverpassFormat(bounds Bounds) string {
 	return fmt.Sprintf("%.02f,%.02f,%.02f,%.02f",
-		activityBounds.LatMin,
-		activityBounds.LongMin,
-		activityBounds.LatMax,
-		activityBounds.LongMax)
+		bounds.LatMin,
+		bounds.LongMin,
+		bounds.LatMax,
+		bounds.LongMax)
 }
 
 /*
@@ -107,5 +102,5 @@ example respsonse:
 */
 
 type overpassResponse struct {
-	Elements []*domain.GeographicMapElement `json:"elements"`
+	Elements []*GeographicMapElement `json:"elements"`
 }
