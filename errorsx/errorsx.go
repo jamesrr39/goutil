@@ -1,10 +1,16 @@
 package errorsx
 
 import (
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"sort"
 	"strings"
+)
+
+// some common error objects to wrap
+var (
+	ObjectNotFound = errors.New("ObjectNotFound")
 )
 
 type kvPairsMapType map[interface{}]interface{}
