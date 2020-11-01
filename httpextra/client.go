@@ -35,13 +35,13 @@ func CheckResponseCode(expected, got int) error {
 func GetBodyOrErrorMsg(resp *http.Response) string {
 	r, err := RemoveGzip(resp)
 	if err != nil {
-		return fmt.Sprintf("couldn't remove gzip. Error: %q", err)
+		return fmt.Sprintf("ERROR: couldn't remove gzip. Error: %q", err)
 	}
 	defer r.Close()
 
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return fmt.Sprintf("couldn't read reader. Error: %q", err)
+		return fmt.Sprintf("ERROR: couldn't read reader. Error: %q", err)
 	}
 
 	return string(b)
