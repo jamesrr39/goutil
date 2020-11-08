@@ -36,7 +36,11 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 	}
 
 	if options.FollowSymlinks {
-		isSymlink := (fileInfo.Mode() & os.ModeSymlink) == 1
+		lfileInfo, err := fs.Lstat(path)
+		if err != nil {
+			return err
+		}
+		isSymlink := (lfileInfo.Mode()&os.ModeSymlink != 0)
 		if isSymlink {
 			linkDest, err := fs.Readlink(path)
 			if err != nil {
