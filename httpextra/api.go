@@ -1,6 +1,7 @@
 package httpextra
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 
@@ -12,13 +13,21 @@ type DataResponse struct {
 }
 
 func DecodeJSONDataResponse(reader io.Reader, dest interface{}) errorsx.Error {
-	d := new(DataResponse)
+	type wrapperType struct {
+		Data json.RawMessage `json:"data"`
+	}
+
+	d := new(wrapperType)
 
 	err := json.NewDecoder(reader).Decode(&d)
 	if err != nil {
 		return errorsx.Wrap(err)
 	}
 
-	dest = d.Data
+	err = json.NewDecoder(bytes.NewBuffer(d.Data)).Decode(&dest)
+	if err != nil {
+		return errorsx.Wrap(err)
+	}
+
 	return nil
 }
