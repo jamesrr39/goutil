@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -23,15 +24,17 @@ func Middleware(profiler *Profiler) func(http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			now := time.Now()
 			run := profiler.NewRun(uuid.New().String())
-			r = r.WithContext(
-				context.WithValue(r.Context(), runCtxKey, run),
-				context.WithValue(r.Context(), profilerCtxKey, profiler),
-			)
+
+			newCtx := r.Context()
+			newCtx = context.WithValue(newCtx, runCtxKey, run)
+			newCtx = context.WithValue(newCtx, profilerCtxKey, profiler)
+
+			r = r.WithContext(newCtx)
 
 			next.ServeHTTP(w, r)
 
 			duration := time.Now().Sub(now)
-			err := profiler.StopAndRecord(run, "finished in %s", duration.String())
+			err := profiler.StopAndRecord(run, fmt.Sprintf("finished in %s", duration.String()))
 			if err != nil {
 				log.Printf("ERROR: profiler: could not StopAndRecord. Error: %q\n", err)
 			}
@@ -43,11 +46,11 @@ func Middleware(profiler *Profiler) func(http.Handler) http.Handler {
 
 func MarkOnCtx(ctx context.Context, eventName string) errorsx.Error {
 	run := ctx.Value(runCtxKey)
-	if nil {
+	if run == nil {
 		return errorsx.Errorf("Profile: MarkOnCtx: no profile run found on context")
 	}
 	profiler := ctx.Value(profilerCtxKey)
-	if nil {
+	if profiler == nil {
 		return errorsx.Errorf("Profile: MarkOnCtx: no profile found on context")
 	}
 
@@ -60,7 +63,8 @@ func MarkOnCtx(ctx context.Context, eventName string) errorsx.Error {
 		return errorsx.Errorf("Profile: MarkOnCtx: run type was not *Run (was %T)", run)
 	}
 
-	return p.Mark(r, eventName)
+	p.Mark(r, eventName)
+	return nil
 }
 
 type Profiler struct {
