@@ -36,9 +36,6 @@ func (err *Err) Error() string {
 	for key, val := range err.kvPairs {
 		kvStrings = append(kvStrings, fmt.Sprintf("%s=%#v", key, val))
 	}
-	sort.Slice(kvStrings, func(i, j int) bool {
-		return kvStrings[i] < kvStrings[j]
-	})
 	if len(kvStrings) > 0 {
 		sort.Slice(kvStrings, func(i, j int) bool {
 			return kvStrings[i] < kvStrings[j]
@@ -46,6 +43,13 @@ func (err *Err) Error() string {
 		s += fmt.Sprintf(" [%s]", strings.Join(kvStrings, ", "))
 	}
 	return s
+}
+
+// GoString implements the GoStringer interface,
+// and so is printed with the %#v fmt directive.
+// See https://golang.org/pkg/fmt/ for more details.
+func (err *Err) GoString() string {
+	return fmt.Sprintf("Error: %q\nStack:\n%s\n", err.Error(), err.Stack())
 }
 
 func Errorf(message string, args ...interface{}) Error {

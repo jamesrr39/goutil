@@ -1,24 +1,31 @@
 package gofs
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/jamesrr39/goutil/excludesmatcher"
 )
 
 type WalkOptions struct {
-	FollowSymlinks bool
+	FollowSymlinks  bool
+	ExcludesMatcher excludesmatcher.Matcher
 }
 
 func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) error {
+	isExcluded := options.ExcludesMatcher != nil && options.ExcludesMatcher.Matches(path)
+	if isExcluded {
+		return nil
+	}
+
 	fileInfo, err := fs.Stat(path)
 	if err != nil {
 		return err
 	}
 
 	if fileInfo.IsDir() {
-		dirEntryInfos, err := ioutil.ReadDir(path)
+		dirEntryInfos, err := fs.ReadDir(path)
 		if err != nil {
 			return err
 		}
