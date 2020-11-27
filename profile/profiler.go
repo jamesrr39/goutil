@@ -14,16 +14,19 @@ import (
 	"github.com/jamesrr39/goutil/errorsx"
 )
 
+type key int
+
 var (
-	runCtxKey      = struct{}{}
-	profilerCtxKey = struct{}{}
+	runCtxKey      key = 1
+	profilerCtxKey key = 2
 )
 
 func Middleware(profiler *Profiler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
-			now := time.Now()
-			run := profiler.NewRun(uuid.New().String())
+			runName := fmt.Sprintf("%s: %s", r.URL.String(), uuid.New().String())
+
+			run := profiler.NewRun(runName)
 
 			newCtx := r.Context()
 			newCtx = context.WithValue(newCtx, runCtxKey, run)
@@ -33,8 +36,7 @@ func Middleware(profiler *Profiler) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(w, r)
 
-			duration := time.Now().Sub(now)
-			err := profiler.StopAndRecord(run, fmt.Sprintf("finished in %s", duration.String()))
+			err := profiler.StopAndRecord(run, "")
 			if err != nil {
 				log.Printf("ERROR: profiler: could not StopAndRecord. Error: %q\n", err)
 			}

@@ -1,10 +1,10 @@
 package profileviz
 
 import (
-	"encoding/json"
-	"fmt"
+	"html/template"
 	"io"
 	"os"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/jamesrr39/goutil/errorsx"
@@ -19,9 +19,8 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 	}
 	defer file.Close()
 
-	runs := []profile.Run{}
-
 	reader := streamtostorage.NewReader(file, streamtostorage.MessageSizeBufferLenDefault)
+	runs := []*runType{}
 	for {
 		b, err := reader.ReadNextMessage()
 		if err != nil {
@@ -31,13 +30,39 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 			return errorsx.Wrap(err)
 		}
 
-		var run profile.Run
-		err = proto.Unmarshal(b, &run)
+		run := new(profile.Run)
+		err = proto.Unmarshal(b, run)
 		if err != nil {
 			return errorsx.Wrap(err)
 		}
 
-		runs = append(runs, run)
+		runDuration := time.Duration(run.EndTimeNanos - run.StartTimeNanos)
+
+		var events []*eventType
+		for _, event := range run.Events {
+			ratioThrough := float64(event.TimeNanos-run.StartTimeNanos) / float64(runDuration)
+			events = append(events, &eventType{
+				Name:                event.Name,
+				TimeSinceStartOfRun: time.Duration(event.TimeNanos - run.StartTimeNanos),
+				PercentageThrough:   ratioThrough * 100,
+			})
+		}
+
+		summary := run.Summary
+		if summary == "" {
+			summary = "(none)"
+		}
+		startTimeSeconds := run.StartTimeNanos / (1000 * 1000 * 1000)
+
+		vizRun := &runType{
+			Name:      run.Name,
+			Summary:   summary,
+			StartTime: time.Unix(startTimeSeconds, run.StartTimeNanos/startTimeSeconds).Format("2006-01-02T15:04:05.999"),
+			Duration:  runDuration.String(),
+			Events:    events,
+		}
+
+		runs = append(runs, vizRun)
 	}
 
 	outFile, err := os.Create(outFilePath)
@@ -46,18 +71,108 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 	}
 	defer outFile.Close()
 
-	runsBytes, err := json.Marshal(runs)
-	if err != nil {
-		return errorsx.Wrap(err)
+	data := &tmplDataType{
+		Runs: runs,
 	}
 
-	_, err = fmt.Fprintf(outFile, tpl, chartJSCSS, chartJSJS, string(runsBytes))
+	err = gotpl.Execute(outFile, data)
 	if err != nil {
 		return errorsx.Wrap(err)
 	}
+	// runsBytes, err := json.Marshal(runs)
+	// if err != nil {
+	// 	return errorsx.Wrap(err)
+	// }
+
+	// _, err = fmt.Fprintf(outFile, tpl, chartJSCSS, chartJSJS, string(runsBytes))
+	// if err != nil {
+	// 	return errorsx.Wrap(err)
+	// }
 
 	return nil
 }
+
+type eventType struct {
+	Name                string
+	PercentageThrough   float64
+	TimeSinceStartOfRun time.Duration
+}
+
+type runType struct {
+	Name, Summary, StartTime, Duration string
+	Events                             []*eventType
+}
+
+type tmplDataType struct {
+	Runs []*runType
+}
+
+var gotpl = template.Must(template.New("profileviz").Parse(`
+	<html>
+		<head>
+			<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+			<meta content="utf-8" http-equiv="encoding">
+			<title>Profile</title>
+			<style type="text/css">
+				.events-table {
+					width: 100%;
+					margin-left: 20%;
+					background: lightblue;
+				}
+				.event-percentage-through-cell {
+					width: 100%;
+					border-left: 1px solid grey;
+					border-right: 1px solid grey;
+				}
+				.event-name {
+					min-width: 100px;
+				}
+				.event-since-start-of-run {
+					min-width: 100px;
+				}
+			</style>
+		</head>
+		<body>
+			<table cellspacing="20px">
+				<thead>
+					<tr>
+						<th>Run</th>
+						<th>Summary</th>
+						<th>Start Time</th>
+						<th>Duration</th>
+					</tr>
+				</thead>
+				<tbody>
+				{{range .Runs}}
+					<tr>
+						<td>{{.Name}}</td>
+						<td>{{.Summary}}</td>
+						<td>{{.StartTime}}</td>
+						<td>{{.Duration}}</td>
+					</tr>
+					<tr>
+						<td colspan="4">
+							<table class="events-table">
+								<tbody>
+									{{range .Events}}
+										<tr>
+											<td class="event-name">{{.Name}}</td>
+											<td class="event-since-start-of-run">{{.TimeSinceStartOfRun}}</td>
+											<td title="{{.PercentageThrough}}%" class="event-percentage-through-cell">
+												<span style="border-left: 1px solid blue; margin-left:{{.PercentageThrough}}%"></span>
+											</td>
+										</tr>
+									{{end}}
+								</tbody>
+							</table>
+						</td>
+					</tr>
+				{{end}}
+				</tbody>
+			</table>
+		</body>
+	</html>
+`))
 
 const tpl = `<html>
 	<head>

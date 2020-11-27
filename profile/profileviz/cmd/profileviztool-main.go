@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/jamesrr39/goutil/profile/profileviz"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -12,6 +14,6 @@ func main() {
 
 	err := profileviz.Generate(*dataFilePath, *outFilePath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error: %s\nStack trace:\n%s\n", err.Error(), err.Stack())
 	}
 }

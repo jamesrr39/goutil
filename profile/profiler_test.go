@@ -48,29 +48,3 @@ func Test_Profiler(t *testing.T) {
 		assert.Equal(t, expectedEvents, run.Events)
 	})
 }
-
-// func Test_a(t *testing.T) {
-// 	fp := filepath.Join("/tmp", time.Now().Format(time.RFC3339Nano)+".pbf")
-
-// 	f, err := os.Create(fp)
-// 	require.NoError(t, err)
-// 	defer f.Close()
-
-// 	p := NewProfiler(streamtostorage.NewWriter(f))
-// 	run := p.NewRun("test--")
-
-// 	time.Sleep(800 * time.Millisecond)
-
-// 	p.Mark(run, "step 1 -- do some work")
-
-// 	time.Sleep(1500 * time.Millisecond)
-
-// 	p.Mark(run, "step 2 -- do some more work")
-
-// 	time.Sleep(2300 * time.Millisecond)
-
-// 	p.Mark(run, "step 3 -- do some more work 3")
-
-// 	err = p.StopAndRecord(run, "finished successfully")
-// 	require.NoError(t, err)
-// }
