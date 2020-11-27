@@ -12,36 +12,29 @@ import (
 	"github.com/jamesrr39/goutil/streamtostorage"
 )
 
-func Generate(dataFilePath, outFilePath string) errorsx.Error {
-	file, err := os.Open(dataFilePath)
-	if err != nil {
-		return errorsx.Wrap(err)
-	}
-	defer file.Close()
-
-	reader := streamtostorage.NewReader(file, streamtostorage.MessageSizeBufferLenDefault)
-	runs := []*runType{}
+func streamToStorageReaderToRuns(reader *streamtostorage.Reader) ([]*RunType, errorsx.Error) {
+	runs := []*RunType{}
 	for {
 		b, err := reader.ReadNextMessage()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			return errorsx.Wrap(err)
+			return nil, errorsx.Wrap(err)
 		}
 
 		run := new(profile.Run)
 		err = proto.Unmarshal(b, run)
 		if err != nil {
-			return errorsx.Wrap(err)
+			return nil, errorsx.Wrap(err)
 		}
 
 		runDuration := time.Duration(run.EndTimeNanos - run.StartTimeNanos)
 
-		var events []*eventType
+		var events []*EventType
 		for _, event := range run.Events {
 			ratioThrough := float64(event.TimeNanos-run.StartTimeNanos) / float64(runDuration)
-			events = append(events, &eventType{
+			events = append(events, &EventType{
 				Name:                event.Name,
 				TimeSinceStartOfRun: time.Duration(event.TimeNanos - run.StartTimeNanos),
 				PercentageThrough:   ratioThrough * 100,
@@ -54,7 +47,7 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 		}
 		startTimeSeconds := run.StartTimeNanos / (1000 * 1000 * 1000)
 
-		vizRun := &runType{
+		vizRun := &RunType{
 			Name:      run.Name,
 			Summary:   summary,
 			StartTime: time.Unix(startTimeSeconds, run.StartTimeNanos/startTimeSeconds).Format("2006-01-02T15:04:05.999"),
@@ -63,6 +56,23 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 		}
 
 		runs = append(runs, vizRun)
+	}
+
+	return runs, nil
+}
+
+func Generate(dataFilePath, outFilePath string) errorsx.Error {
+	file, err := os.Open(dataFilePath)
+	if err != nil {
+		return errorsx.Wrap(err)
+	}
+	defer file.Close()
+
+	reader := streamtostorage.NewReader(file, streamtostorage.MessageSizeBufferLenDefault)
+
+	runs, err := streamToStorageReaderToRuns(reader)
+	if err != nil {
+		return errorsx.Wrap(err)
 	}
 
 	outFile, err := os.Create(outFilePath)
@@ -92,19 +102,19 @@ func Generate(dataFilePath, outFilePath string) errorsx.Error {
 	return nil
 }
 
-type eventType struct {
+type EventType struct {
 	Name                string
 	PercentageThrough   float64
 	TimeSinceStartOfRun time.Duration
 }
 
-type runType struct {
+type RunType struct {
 	Name, Summary, StartTime, Duration string
-	Events                             []*eventType
+	Events                             []*EventType
 }
 
 type tmplDataType struct {
-	Runs []*runType
+	Runs []*RunType
 }
 
 var gotpl = template.Must(template.New("profileviz").Parse(`
@@ -116,7 +126,6 @@ var gotpl = template.Must(template.New("profileviz").Parse(`
 			<style type="text/css">
 				.events-table {
 					width: 100%;
-					margin-left: 20%;
 					background: lightblue;
 				}
 				.event-percentage-through-cell {
@@ -133,9 +142,10 @@ var gotpl = template.Must(template.New("profileviz").Parse(`
 			</style>
 		</head>
 		<body>
-			<table cellspacing="20px">
+			<table cellspacing="10px">
 				<thead>
 					<tr>
+						<th></th>
 						<th>Run</th>
 						<th>Summary</th>
 						<th>Start Time</th>
@@ -145,13 +155,16 @@ var gotpl = template.Must(template.New("profileviz").Parse(`
 				<tbody>
 				{{range .Runs}}
 					<tr>
+						<td>
+							<button type="button" class="expand-events-row">Expand</button>
+						</td>
 						<td>{{.Name}}</td>
 						<td>{{.Summary}}</td>
 						<td>{{.StartTime}}</td>
 						<td>{{.Duration}}</td>
 					</tr>
-					<tr>
-						<td colspan="4">
+					<tr style="display: none;">
+						<td colspan="5">
 							<table class="events-table">
 								<tbody>
 									{{range .Events}}
@@ -170,6 +183,21 @@ var gotpl = template.Must(template.New("profileviz").Parse(`
 				{{end}}
 				</tbody>
 			</table>
+			<script>
+				for (let expandButton of document.getElementsByClassName("expand-events-row")) {
+					expandButton.addEventListener("click", event => {
+						console.log(event);
+						const detailRow = event.target.parentElement.parentElement.nextElementSibling;
+						if (detailRow.style.display === "none") {
+							detailRow.style.display = "table-row";
+							expandButton.innerText = "Collapse";
+						} else {
+							detailRow.style.display = "none";
+							expandButton.innerText = "Expand";
+						}
+					});
+				}
+			</script>
 		</body>
 	</html>
 `))
