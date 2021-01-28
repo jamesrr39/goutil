@@ -1,5 +1,7 @@
 package algorithms
 
+import "fmt"
+
 type SearchResult int
 
 const (
@@ -9,6 +11,9 @@ const (
 	SearchResultGoLower
 	// SearchResultGoHigher indicates the search should look higher
 	SearchResultGoHigher
+	// SearchResultInvalid indicates the search was invalid.
+	// This can mean that a list with 0 items was passed in.
+	SearchResultInvalid
 )
 
 // BinarySearchFunc is a caller-supplied function that tells the Binary Search function to go higher or lower
@@ -21,11 +26,11 @@ const (
 )
 
 // BinarySearch performs a binary search on a given list size and binary search function
-// It returns the index of the last value tested it could find, and a boolean indicating whether the value was found exactly
-func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, bool) {
+// It returns the index of the last value tested it could find, and the last result, indicating whether the value was found exactly, or if it was higher or lower than the last value tested
+func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, SearchResult) {
 	if listSize == 0 {
 		// handle special case
-		return 0, false
+		return 0, SearchResultInvalid
 	}
 
 	// lowest and highest possible indexes
@@ -37,7 +42,7 @@ func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, bool) {
 		result := binarySearchFunc(i)
 		switch result {
 		case SearchResultFound:
-			return i, true
+			return i, result
 		case SearchResultGoLower:
 			// what we're searching for is below i
 			// so set upperBound to be i - 1
@@ -49,10 +54,10 @@ func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, bool) {
 		}
 		if lowerBound > upperBound {
 			// we've exhausted the search space without finding anything
-			return i, false
+			return i, result
 		}
 		i = (lowerBound + upperBound) / 2
 
 	}
-	panic("maxBinarySearchIterations reached")
+	panic(fmt.Sprintf("maxBinarySearchIterations (%d) reached", maxBinarySearchIterations))
 }

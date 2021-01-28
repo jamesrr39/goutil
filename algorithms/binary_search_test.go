@@ -23,7 +23,7 @@ func TestBinarySearch(t *testing.T) {
 		name  string
 		args  args
 		want  int
-		want1 bool
+		want1 SearchResult
 	}{
 		{
 			name: "example found list even length",
@@ -44,7 +44,7 @@ func TestBinarySearch(t *testing.T) {
 				},
 			},
 			want:  2,
-			want1: true,
+			want1: SearchResultFound,
 		}, {
 			name: "example not found list even length",
 			args: args{
@@ -64,7 +64,7 @@ func TestBinarySearch(t *testing.T) {
 				},
 			},
 			want:  3,
-			want1: false,
+			want1: SearchResultGoLower,
 		}, {
 			name: "example found list odd length",
 			args: args{
@@ -84,7 +84,7 @@ func TestBinarySearch(t *testing.T) {
 				},
 			},
 			want:  2,
-			want1: true,
+			want1: SearchResultFound,
 		}, {
 			name: "example not found list even length",
 			args: args{
@@ -104,7 +104,7 @@ func TestBinarySearch(t *testing.T) {
 				},
 			},
 			want:  2,
-			want1: false,
+			want1: SearchResultGoHigher,
 		}, {
 			name: "example not found, value too low, list even length",
 			args: args{
@@ -124,7 +124,7 @@ func TestBinarySearch(t *testing.T) {
 				},
 			},
 			want:  0,
-			want1: false,
+			want1: SearchResultGoLower,
 		}, {
 			name: "example not found, value too high, list even length",
 			args: args{
@@ -144,7 +144,7 @@ func TestBinarySearch(t *testing.T) {
 				},
 			},
 			want:  5,
-			want1: false,
+			want1: SearchResultGoHigher,
 		},
 	}
 	for _, tt := range tests {
@@ -174,9 +174,6 @@ func Test_17(t *testing.T) {
 		return func(i int) SearchResult {
 			thisKey := items[i]
 
-			// debug
-			println("checking out item", binary.LittleEndian.Uint64(thisKey), "idx", i)
-
 			if bytes.Equal(thisKey, key) {
 				return SearchResultFound
 			}
@@ -198,9 +195,9 @@ func Test_17(t *testing.T) {
 
 	for i, item := range items {
 		t.Run(fmt.Sprintf("find %d, idx %d", dataSet[i], i), func(t *testing.T) {
-			idx, matchFound := BinarySearch(len(dataSet), makeFunc(item))
+			idx, lastResult := BinarySearch(len(dataSet), makeFunc(item))
 			require.NoError(t, binarySearchErr)
-			assert.True(t, matchFound)
+			assert.Equal(t, SearchResultFound, lastResult)
 			assert.Equal(t, i, idx)
 		})
 	}
