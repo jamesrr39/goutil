@@ -1,7 +1,11 @@
 package algorithms
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
+//go:generate stringer -type=SearchResult
 type SearchResult int
 
 const (
@@ -60,4 +64,20 @@ func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, SearchR
 
 	}
 	panic(fmt.Sprintf("maxBinarySearchIterations (%d) reached", maxBinarySearchIterations))
+}
+
+// CreateByteComparatorFunc creates a comparator function for keys of type []byte
+func CreateByteComparatorFunc(needle []byte, getListValueAtIndex func(index int) []byte) BinarySearchFunc {
+	return func(index int) SearchResult {
+		compareResult := bytes.Compare(needle, getListValueAtIndex(index))
+		switch compareResult {
+		case 0:
+			return SearchResultFound
+		case 1:
+			return SearchResultGoHigher
+		case -1:
+			return SearchResultGoLower
+		}
+		panic(fmt.Sprintf("unexpected bytes.Compare result: %d", compareResult))
+	}
 }
