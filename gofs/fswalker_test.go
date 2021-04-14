@@ -72,25 +72,4 @@ func Test_x(t *testing.T) {
 		assert.True(t, visitedFileA)
 		assert.False(t, visitedFileB)
 	})
-
-	t.Run("FollowSymlinks: true", func(t *testing.T) {
-		var visitedFileA, visitedFileB bool
-		err := Walk(NewOsFs(), dirAPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			switch path {
-			case fileAPath:
-				visitedFileA = true
-			case fileBPath:
-				visitedFileB = true
-			}
-			return nil
-		}, WalkOptions{FollowSymlinks: true})
-		require.NoError(t, err)
-
-		assert.True(t, visitedFileA)
-		assert.True(t, visitedFileB)
-	})
 }
