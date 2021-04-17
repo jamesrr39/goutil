@@ -47,7 +47,7 @@ func AssertMatchesSnapshot(t *testing.T, snapshotName string, actualSnapshot *Sn
 
 	file, err := actioner.OpenFile(t, snapshotFilePath)
 	if err != nil {
-		actioner.OnSnapshotFileOpenError(t, snapshotDirPath, snapshotFilePath, actualSnapshot)
+		actioner.OnSnapshotFileOpenError(t, snapshotFilePath, actualSnapshot)
 		return
 	}
 	defer file.Close()
