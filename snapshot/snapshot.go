@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+const UpdateSnapshotEnvVariableName = "UPDATE_SNAPSHOTS"
+
 type SnapshotDataType string
 
 const (
@@ -44,7 +46,7 @@ func AssertMatchesSnapshot(t *testing.T, snapshotName string, actualSnapshot *Sn
 
 	file, err := actioner.OpenFile(t, snapshotFilePath)
 	if err != nil {
-		actioner.OnSnapshotFileOpenError(t, file, snapshotDirPath, snapshotFilePath, actualSnapshot)
+		actioner.OnSnapshotFileOpenError(t, snapshotDirPath, snapshotFilePath, actualSnapshot)
 		return
 	}
 	defer file.Close()
@@ -61,7 +63,7 @@ func AssertMatchesSnapshot(t *testing.T, snapshotName string, actualSnapshot *Sn
 }
 
 func shouldUpdateViaEnv() snapshotActioner {
-	shouldUpdateVal, ok := os.LookupEnv("UPDATE_SNAPSHOTS")
+	shouldUpdateVal, ok := os.LookupEnv(UpdateSnapshotEnvVariableName)
 	if ok && shouldUpdateVal == "1" {
 		return updateSnapshotActioner{}
 	}
@@ -71,7 +73,7 @@ func shouldUpdateViaEnv() snapshotActioner {
 
 type snapshotActioner interface {
 	OpenFile(t *testing.T, filePath string) (*os.File, error)
-	OnSnapshotFileOpenError(t *testing.T, file *os.File, snapshotDirPath, snapshotFilePath string, actual *SnapshotType)
+	OnSnapshotFileOpenError(t *testing.T, snapshotDirPath, snapshotFilePath string, actual *SnapshotType)
 	OnSnapshotNotMatched(t *testing.T, file *os.File, expectedSnapshot, actualSnapshot *SnapshotType)
 	OnExpectedSnapshotJsonDecodeFail(t *testing.T, snapshotFilePath string)
 }
@@ -87,7 +89,7 @@ func (a noUpdateSnapshotActioner) OpenFile(t *testing.T, filePath string) (*os.F
 	return os.Open(filePath)
 }
 
-func (a noUpdateSnapshotActioner) OnSnapshotFileOpenError(t *testing.T, file *os.File, snapshotDirPath, snapshotFilePath string, actual *SnapshotType) {
+func (a noUpdateSnapshotActioner) OnSnapshotFileOpenError(t *testing.T, snapshotDirPath, snapshotFilePath string, actual *SnapshotType) {
 	t.Errorf("couldn't open snapshot file at %q", snapshotFilePath)
 }
 
@@ -118,12 +120,12 @@ func (a updateSnapshotActioner) OpenFile(t *testing.T, filePath string) (*os.Fil
 	return file, nil
 }
 
-func (a updateSnapshotActioner) OnSnapshotFileOpenError(t *testing.T, file *os.File, snapshotDirPath, snapshotFilePath string, actual *SnapshotType) {
+func (a updateSnapshotActioner) OnSnapshotFileOpenError(t *testing.T, snapshotDirPath, snapshotFilePath string, actual *SnapshotType) {
 	err := os.MkdirAll(snapshotDirPath, 0755)
 	if err != nil {
 		panic(err)
 	}
-	file, err = os.Create(snapshotFilePath)
+	file, err := os.Create(snapshotFilePath)
 	if err != nil {
 		panic(err)
 	}
