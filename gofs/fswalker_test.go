@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_x(t *testing.T) {
+func Test_walk(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
@@ -66,7 +66,9 @@ func Test_x(t *testing.T) {
 				visitedFileB = true
 			}
 			return nil
-		}, WalkOptions{})
+		}, WalkOptions{
+			MaxConcurrency: 1000,
+		})
 		require.NoError(t, err)
 
 		assert.True(t, visitedFileA)
