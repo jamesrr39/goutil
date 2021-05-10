@@ -45,3 +45,33 @@ func Test_Wrap(t *testing.T) {
 	assert.Equal(t, err.Stack(), err2.Stack())
 	assert.Equal(t, err2.Stack(), err3.Stack())
 }
+
+func TestWrap(t *testing.T) {
+	type args struct {
+		err     error
+		kvPairs []interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want Error
+	}{
+		{
+			"no crash on insufficient args",
+			args{
+				Errorf("test error"),
+				[]interface{}{
+					"k1", "v1",
+					"k2",
+				},
+			},
+			Errorf(`test error [k1="v1", k2="[empty]"]`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Wrap(tt.args.err, tt.args.kvPairs...)
+			assert.Equal(t, tt.want.Error(), err.Error())
+		})
+	}
+}
