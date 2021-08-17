@@ -10,6 +10,7 @@ type logger interface {
 	Error(message string, args ...interface{})
 }
 
+// HTTPError writes a warning or error to the logger and writes the error message as plain text to the ResponseWriter
 func HTTPError(w http.ResponseWriter, log logger, err Error, statusCode int) {
 	w.WriteHeader(statusCode)
 	if statusCode < 500 {
@@ -21,10 +22,11 @@ func HTTPError(w http.ResponseWriter, log logger, err Error, statusCode int) {
 	w.Write([]byte(err.Error()))
 }
 
-type jsonErrorMessageType struct {
+type JSONErrorMessageType struct {
 	Message string `json:"message"`
 }
 
+// HTTPJSONError writes a warning or error to the logger and writes the error message as the Message property a JSONErrorMessageType
 func HTTPJSONError(w http.ResponseWriter, log logger, err Error, statusCode int) {
 	w.WriteHeader(statusCode)
 	if statusCode < 500 {
@@ -33,5 +35,5 @@ func HTTPJSONError(w http.ResponseWriter, log logger, err Error, statusCode int)
 		log.Error("%s. Stack trace:\n%s", err.Error(), err.Stack())
 	}
 
-	json.NewEncoder(w).Encode(jsonErrorMessageType{err.Error()})
+	json.NewEncoder(w).Encode(JSONErrorMessageType{err.Error()})
 }
