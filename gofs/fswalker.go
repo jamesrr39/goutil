@@ -11,8 +11,9 @@ import (
 )
 
 type WalkOptions struct {
+	IncludesMatcher,
 	ExcludesMatcher excludesmatcher.Matcher
-	MaxConcurrency  uint
+	MaxConcurrency uint
 }
 
 type walkerType struct {
@@ -21,7 +22,7 @@ type walkerType struct {
 	walkFunc        filepath.WalkFunc
 	options         WalkOptions
 	processSema     *semaphore.Semaphore
-	errChan             chan error
+	errChan         chan error
 	addToQueueWg    *sync.WaitGroup
 	processPathChan chan string
 }
@@ -42,7 +43,7 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		walkFunc:        walkFunc,
 		options:         options,
 		processSema:     semaphore.NewSemaphore(maxConcurrency),
-		errChan: make(chan error),
+		errChan:         make(chan error),
 		addToQueueWg:    new(sync.WaitGroup),
 		processPathChan: make(chan string),
 	}
@@ -52,30 +53,30 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 	go func() {
 		for {
 			select {
-			case err := <- wt.errChan:
+			case err := <-wt.errChan:
 				doneChan <- err
 				return
-				
+
 			case path := <-wt.processPathChan:
 
-			wt.processSema.Add()
-			go func(path string) {
-				defer wt.addToQueueWg.Done()
-				fileInfo, err := wt.processPath(path)
-				wt.processSema.Done()
-				if err != nil {
-					wt.errChan <- err
-					return
-				}
-
-				if fileInfo != nil && fileInfo.IsDir() {
-					err = wt.walkDir(path)
+				wt.processSema.Add()
+				go func(path string) {
+					defer wt.addToQueueWg.Done()
+					fileInfo, err := wt.processPath(path)
+					wt.processSema.Done()
 					if err != nil {
 						wt.errChan <- err
 						return
 					}
-				}
-			}(path)
+
+					if fileInfo != nil && fileInfo.IsDir() {
+						err = wt.walkDir(path)
+						if err != nil {
+							wt.errChan <- err
+							return
+						}
+					}
+				}(path)
 			}
 		}
 	}()
@@ -88,8 +89,7 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		doneChan <- nil
 	}()
 
-	err := <- doneChan
-	
+	err := <-doneChan
 
 	return err
 }
@@ -99,6 +99,13 @@ func (wt *walkerType) processPath(path string) (os.FileInfo, error) {
 	isExcluded := wt.options.ExcludesMatcher != nil && wt.options.ExcludesMatcher.Matches(relativePath)
 	if isExcluded {
 		return nil, nil
+	}
+
+	if wt.options.IncludesMatcher != nil {
+		isIncluded := wt.options.IncludesMatcher.Matches(relativePath)
+		if !isIncluded {
+			return nil, nil
+		}
 	}
 
 	fileInfo, err := wt.fs.Lstat(path)
