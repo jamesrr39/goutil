@@ -1,4 +1,4 @@
-package excludesmatcher
+package patternmatcher
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ func Test_NewExcludesMatcherFromReader(t *testing.T) {
 `)
 	assert.Nil(t, err)
 
-	matcher, err := NewExcludesMatcherFromReader(buf)
+	matcher, err := NewMatcherFromReader(buf)
 	assert.Nil(t, err)
 
 	assert.Len(t, matcher.globs, 3, "expected 3 matcher patterns - has the comment or blank been included as a regex")
