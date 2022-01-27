@@ -6,13 +6,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jamesrr39/goutil/excludesmatcher"
+	"github.com/jamesrr39/goutil/patternmatcher"
 	"github.com/jamesrr39/semaphore"
 )
 
 type WalkOptions struct {
 	IncludesMatcher,
-	ExcludesMatcher excludesmatcher.Matcher
+	ExcludesMatcher patternmatcher.Matcher
 	MaxConcurrency uint
 }
 
