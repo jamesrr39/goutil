@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/jamesrr39/goutil/patternmatcher"
-	"github.com/jamesrr39/semaphore"
 )
 
 type WalkOptions struct {
@@ -21,7 +20,6 @@ type walkerType struct {
 	basePath        string
 	walkFunc        filepath.WalkFunc
 	options         WalkOptions
-	processSema     *semaphore.Semaphore
 	errChan         chan error
 	addToQueueWg    *sync.WaitGroup
 	processPathChan chan string
@@ -42,10 +40,9 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		basePath:        path,
 		walkFunc:        walkFunc,
 		options:         options,
-		processSema:     semaphore.NewSemaphore(maxConcurrency),
 		errChan:         make(chan error),
 		addToQueueWg:    new(sync.WaitGroup),
-		processPathChan: make(chan string),
+		processPathChan: make(chan string, maxConcurrency),
 	}
 
 	doneChan := make(chan error)
@@ -58,12 +55,9 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 				return
 
 			case path := <-wt.processPathChan:
-
-				wt.processSema.Add()
 				go func(path string) {
 					defer wt.addToQueueWg.Done()
 					fileInfo, err := wt.processPath(path)
-					wt.processSema.Done()
 					if err != nil {
 						wt.errChan <- err
 						return
