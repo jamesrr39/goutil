@@ -62,9 +62,14 @@ func (s *RateLimiter) RegisterEntry(key string) error {
 	return nil
 }
 
-func (s *RateLimiter) IsAvailable(key string) (bool, error) {
+// IsAvailable checks if the resource is available, i.e. if the rate limiter for this key has been reached
+// It returns:
+// 1. If it is
+// 2. The current status of the non-availability, if applicable, i.e. how many attempts have happened so far and when the rate limiter expires
+// 3. Any error
+func (s *RateLimiter) IsAvailable(key string) (bool, limiterEntryType, error) {
 	if key == "" {
-		return false, errors.New("must have a non-zero length key")
+		return false, limiterEntryType{}, errors.New("must have a non-zero length key")
 	}
 
 	now := s.nowFunc()
@@ -74,16 +79,16 @@ func (s *RateLimiter) IsAvailable(key string) (bool, error) {
 	existingEntry, ok := s.m[key]
 	if !ok {
 		// no rate limiter set for this key
-		return true, nil
+		return true, limiterEntryType{}, nil
 	}
 
 	if existingEntry.NextAvailableTime.After(now) {
-		return false, nil
+		return false, existingEntry, nil
 	}
 
 	// rate limiter was set, but it has expired. We can delete it.
 	delete(s.m, key)
-	return true, nil
+	return true, limiterEntryType{}, nil
 }
 
 func (s *RateLimiter) GetStatus(key string) limiterEntryType {

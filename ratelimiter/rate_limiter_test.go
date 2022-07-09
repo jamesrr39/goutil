@@ -22,7 +22,7 @@ func Test_RateLimiter(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("test first available", func(t *testing.T) {
-		avail, err := rateLimiter.IsAvailable(key1)
+		avail, _, err := rateLimiter.IsAvailable(key1)
 		require.NoError(t, err)
 		assert.True(t, avail)
 	})
@@ -34,16 +34,19 @@ func Test_RateLimiter(t *testing.T) {
 		status := rateLimiter.GetStatus(key1)
 		assert.Equal(t, int64(1), status.CountEntries)
 
-		avail, err := rateLimiter.IsAvailable(key1)
+		assert.Equal(t, int64(1), status.CountEntries)
+
+		avail, status, err := rateLimiter.IsAvailable(key1)
 		require.NoError(t, err)
 		assert.False(t, avail)
 
 		assert.Equal(t, int64(1), status.CountEntries)
+		assert.Equal(t, time.Date(2000, 1, 1, 1, 1, 1, 0, time.UTC), status.NextAvailableTime)
 	})
 
 	t.Run("update time now to '2' seconds, rate limiter should be ready again", func(t *testing.T) {
 		timeNowSeconds = 2
-		avail, err := rateLimiter.IsAvailable(key1)
+		avail, _, err := rateLimiter.IsAvailable(key1)
 		require.NoError(t, err)
 		assert.True(t, avail)
 
@@ -52,7 +55,6 @@ func Test_RateLimiter(t *testing.T) {
 		require.NoError(t, err)
 
 		status := rateLimiter.GetStatus(key1)
-
 		assert.Equal(t, int64(1), status.CountEntries)
 
 		err = rateLimiter.RegisterEntry(key1)
@@ -62,12 +64,13 @@ func Test_RateLimiter(t *testing.T) {
 
 		// Since time now is at "2" seconds when the second one is set, it should be ready at "5 seconds"
 		timeNowSeconds = 4
-		avail, err = rateLimiter.IsAvailable(key1)
+		avail, status, err = rateLimiter.IsAvailable(key1)
 		require.NoError(t, err)
 		assert.False(t, avail)
+		assert.Equal(t, time.Date(2000, 1, 1, 1, 1, 5, 0, time.UTC), status.NextAvailableTime)
 
 		timeNowSeconds = 5
-		avail, err = rateLimiter.IsAvailable(key1)
+		avail, _, err = rateLimiter.IsAvailable(key1)
 		require.NoError(t, err)
 		assert.True(t, avail)
 	})
