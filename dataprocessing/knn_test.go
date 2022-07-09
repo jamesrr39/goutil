@@ -22,20 +22,20 @@ func Test_setClosestNeighboursWithSet(t *testing.T) {
 	const numberOfNearestNeighbours = 3
 	newPoint := Point{0, 0}
 
-	setA := Set{Points: []Point{Point{4.5, 6}, Point{6, 8}}}
+	setA := Set{Points: []Point{{4.5, 6}, {6, 8}}}
 	closestNeighbours := setClosestNeighboursWithSet(newPoint, nil, setA.Points, 0, numberOfNearestNeighbours)
-	assert.Equal(t, []neighbour{neighbour{7.5, 0}, neighbour{10, 0}}, closestNeighbours)
+	assert.Equal(t, []neighbour{{7.5, 0}, {10, 0}}, closestNeighbours)
 
-	setB := Set{Points: []Point{Point{3, 4}}}
+	setB := Set{Points: []Point{{3, 4}}}
 	closestNeighbours = setClosestNeighboursWithSet(newPoint, closestNeighbours, setB.Points, 1, numberOfNearestNeighbours)
-	assert.Equal(t, []neighbour{neighbour{5, 1}, neighbour{7.5, 0}, neighbour{10, 0}}, closestNeighbours)
+	assert.Equal(t, []neighbour{{5, 1}, {7.5, 0}, {10, 0}}, closestNeighbours)
 }
 
 func Test_ClassifyPoint(t *testing.T) {
 	const numberOfNearestNeighbours = 3
 
-	setA := NewSet("set A", []Point{Point{6, 8}, Point{5, 8}, Point{5, 7.6}, Point{1, 5}, Point{10, 8}, Point{6, 32}, Point{6, 12}, Point{10, 8}})
-	setB := NewSet("set B", []Point{Point{-6, -8}, Point{-3, -8}, Point{-4, -8}, Point{-6, -6}, Point{-6, -7}, Point{-6, -9}, Point{-10, -8}, Point{-16, -8}})
+	setA := NewSet("set A", []Point{{6, 8}, {5, 8}, {5, 7.6}, {1, 5}, {10, 8}, {6, 32}, {6, 12}, {10, 8}})
+	setB := NewSet("set B", []Point{{-6, -8}, {-3, -8}, {-4, -8}, {-6, -6}, {-6, -7}, {-6, -9}, {-10, -8}, {-16, -8}})
 
 	classifier, err := NewKNNClassifier(numberOfNearestNeighbours, []Set{setA, setB})
 	require.Nil(t, err)

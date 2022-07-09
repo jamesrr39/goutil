@@ -86,7 +86,7 @@ func setClosestNeighboursWithSet(point Point, existingClosestNeighbours []neighb
 			existingClosestNeighbours = append(
 				itemsBefore,
 				append(
-					[]neighbour{neighbour{distance, setIndex}},
+					[]neighbour{{distance, setIndex}},
 					itemsAfter...,
 				)...,
 			)
