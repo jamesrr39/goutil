@@ -91,6 +91,14 @@ func (s *RateLimiter) IsAvailable(key string) (bool, limiterEntryType, error) {
 	return true, limiterEntryType{}, nil
 }
 
+func (s *RateLimiter) DeleteEntry(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.m, key)
+	return nil
+}
+
 func (s *RateLimiter) GetStatus(key string) limiterEntryType {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
