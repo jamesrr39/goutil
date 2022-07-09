@@ -1,6 +1,7 @@
 package dataprocessing
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,4 +43,36 @@ func Test_ClassifyPoint(t *testing.T) {
 
 	assert.Equal(t, "set A", classifier.ClassifyPoint(Point{10, 40}))
 	assert.Equal(t, "set B", classifier.ClassifyPoint(Point{-10, -40}))
+}
+
+func ExampleNewKNNClassifier() {
+	// X = weight kg, Y = number of passengers
+	bicycleSet := NewSet("bicycle", []Point{{X: 10, Y: 1}, {X: 15, Y: 1}, {X: 10, Y: 1}, {X: 11, Y: 1}, {X: 18, Y: 1}, {X: 20, Y: 1}})
+	carSet := NewSet("car", []Point{{X: 1000, Y: 4}, {X: 1500, Y: 5}, {X: 900, Y: 2}, {X: 1300, Y: 5}, {X: 2000, Y: 4}})
+
+	const numberOfNearestNeighbours = 3
+
+	classifier, err := NewKNNClassifier(numberOfNearestNeighbours, []Set{bicycleSet, carSet})
+	if err != nil {
+		panic(err)
+	}
+
+	newBike := Point{
+		X: 25,
+		Y: 2, // with child seat
+	}
+	newCar := Point{
+		X: 1300,
+		Y: 4,
+	}
+
+	newBikeLabel := classifier.ClassifyPoint(newBike)
+	newCarLabel := classifier.ClassifyPoint(newCar)
+
+	fmt.Printf("'newBike' classified as: %s\n", newBikeLabel)
+	fmt.Printf("'newCar' classified as: %s\n", newCarLabel)
+
+	// Output:
+	// 'newBike' classified as: bicycle
+	// 'newCar' classified as: car
 }
