@@ -45,6 +45,14 @@ func (err *Err) Error() string {
 	return s
 }
 
+// ErrWithStack returns a std-lib error with the stack trace, if an error was passed in.
+func ErrWithStack(err Error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("Error: %s\nStack:\n%s\n", err.Error(), err.Stack())
+}
+
 // GoString implements the GoStringer interface,
 // and so is printed with the %#v fmt directive.
 // See https://golang.org/pkg/fmt/ for more details.
