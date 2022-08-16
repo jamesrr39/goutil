@@ -170,7 +170,8 @@ func (wt *walkerType) resolveSymlink(path string, fileInfo os.FileInfo) (string,
 		// since Walk() takes in a path, if the symlink is a relative path,
 		// we need to turn that into a path relative from the path that was passed in to Walk()
 		if !filepath.IsAbs(targetPath) {
-			targetPath = filepath.Join(path, targetPath)
+			dirPath := filepath.Dir(path)
+			targetPath = filepath.Join(dirPath, targetPath)
 		}
 
 		targetInfo, err := wt.fs.Lstat(targetPath)
