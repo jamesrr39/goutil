@@ -27,6 +27,7 @@ type walkerType struct {
 	errChan         chan error
 	addToQueueWg    *sync.WaitGroup
 	processPathChan chan string
+	statterFunc     func(path string) (os.FileInfo, error)
 }
 
 const DefaultMaxConcurrency = 1
@@ -39,6 +40,11 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		maxConcurrency = DefaultMaxConcurrency
 	}
 
+	statterFunc := fs.Lstat
+	if options.FollowSymlinks {
+		statterFunc = fs.Stat
+	}
+
 	wt := &walkerType{
 		fs:              fs,
 		basePath:        path,
@@ -47,6 +53,7 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		errChan:         make(chan error),
 		addToQueueWg:    new(sync.WaitGroup),
 		processPathChan: make(chan string, maxConcurrency),
+		statterFunc:     statterFunc,
 	}
 
 	doneChan := make(chan error)
@@ -83,7 +90,7 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		}
 	}()
 
-	fileInfo, err := wt.fs.Lstat(path)
+	fileInfo, err := wt.statterFunc(path)
 	if err != nil {
 		return err
 	}
@@ -117,7 +124,7 @@ func (wt *walkerType) processPath(path string) (os.FileInfo, error) {
 		}
 	}
 
-	fileInfo, err := wt.fs.Lstat(path)
+	fileInfo, err := wt.statterFunc(path)
 	if err != nil {
 		return nil, err
 	}
@@ -146,42 +153,7 @@ func (wt *walkerType) walkDir(path string) error {
 }
 
 func (wt *walkerType) addToProcessPathChan(path string, fileInfo fs.FileInfo) error {
-	if wt.options.FollowSymlinks {
-		targetPath, _, err := wt.resolveSymlink(path, fileInfo)
-		if err != nil {
-			return err
-		}
-
-		path = targetPath
-	}
-
 	wt.addToQueueWg.Add(1)
 	wt.processPathChan <- path
 	return nil
-}
-
-func (wt *walkerType) resolveSymlink(path string, fileInfo os.FileInfo) (string, os.FileInfo, error) {
-	for IsSymlink(fileInfo.Mode()) {
-		targetPath, err := wt.fs.Readlink(path)
-		if err != nil {
-			return "", nil, err
-		}
-
-		// since Walk() takes in a path, if the symlink is a relative path,
-		// we need to turn that into a path relative from the path that was passed in to Walk()
-		if !filepath.IsAbs(targetPath) {
-			dirPath := filepath.Dir(path)
-			targetPath = filepath.Join(dirPath, targetPath)
-		}
-
-		targetInfo, err := wt.fs.Lstat(targetPath)
-		if err != nil {
-			return "", nil, err
-		}
-
-		path = targetPath
-		fileInfo = targetInfo
-	}
-
-	return path, fileInfo, nil
 }

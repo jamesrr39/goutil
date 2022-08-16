@@ -108,7 +108,7 @@ func (fs *OsFs) Readlink(path string) (string, error) {
 }
 
 func IsSymlink(fileMode fs.FileMode) bool {
-	if fileMode&fs.ModeSymlink == 0 {
+	if fileMode&fs.ModeSymlink == 1 {
 		return false
 	}
 
