@@ -1,6 +1,7 @@
 package gofs
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,9 @@ type WalkOptions struct {
 	IncludesMatcher,
 	ExcludesMatcher patternmatcher.Matcher
 	MaxConcurrency uint
+	// FollowSymlinks treats a symlink as if it were the file/directory underneath, effectively hiding the symlink from the consumer.
+	// It can be used with a chain of symlinks, in which case it will keep following the links, until it reaches a non-symlink
+	FollowSymlinks bool
 }
 
 type walkerType struct {
@@ -63,7 +67,11 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 						return
 					}
 
-					if fileInfo != nil && fileInfo.IsDir() {
+					if fileInfo == nil {
+						return
+					}
+
+					if fileInfo.IsDir() {
 						err = wt.walkDir(path)
 						if err != nil {
 							wt.errChan <- err
@@ -75,15 +83,22 @@ func Walk(fs Fs, path string, walkFunc filepath.WalkFunc, options WalkOptions) e
 		}
 	}()
 
-	wt.addToQueueWg.Add(1)
-	wt.processPathChan <- path
+	fileInfo, err := wt.fs.Lstat(path)
+	if err != nil {
+		return err
+	}
+
+	err = wt.addToProcessPathChan(path, fileInfo)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		wt.addToQueueWg.Wait()
 		doneChan <- nil
 	}()
 
-	err := <-doneChan
+	err = <-doneChan
 
 	return err
 }
@@ -124,9 +139,42 @@ func (wt *walkerType) walkDir(path string) error {
 	for _, dirEntryInfo := range dirEntryInfos {
 		childPath := filepath.Join(path, dirEntryInfo.Name())
 
-		wt.addToQueueWg.Add(1)
-		wt.processPathChan <- childPath
+		wt.addToProcessPathChan(childPath, dirEntryInfo)
 	}
 
 	return nil
+}
+
+func (wt *walkerType) addToProcessPathChan(path string, fileInfo fs.FileInfo) error {
+	if wt.options.FollowSymlinks {
+		targetPath, _, err := wt.resolveSymlink(path, fileInfo)
+		if err != nil {
+			return err
+		}
+
+		path = targetPath
+	}
+
+	wt.addToQueueWg.Add(1)
+	wt.processPathChan <- path
+	return nil
+}
+
+func (wt *walkerType) resolveSymlink(path string, fileInfo os.FileInfo) (string, os.FileInfo, error) {
+	for IsSymlink(fileInfo.Mode()) {
+		targetPath, err := wt.fs.Readlink(path)
+		if err != nil {
+			return "", nil, err
+		}
+
+		targetInfo, err := wt.fs.Lstat(targetPath)
+		if err != nil {
+			return "", nil, err
+		}
+
+		path = targetPath
+		fileInfo = targetInfo
+	}
+
+	return path, fileInfo, nil
 }
