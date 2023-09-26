@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jamesrr39/go-errorsx"
 	"github.com/jamesrr39/goutil/binaryx"
-	"github.com/jamesrr39/goutil/errorsx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

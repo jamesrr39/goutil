@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/jamesrr39/goutil/errorsx"
+	"github.com/jamesrr39/go-errorsx"
 )
 
 // LocalDevServerEnvVarName is the environment variable name for the dev server

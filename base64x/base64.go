@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"io"
 
-	"github.com/jamesrr39/goutil/errorsx"
+	"github.com/jamesrr39/go-errorsx"
 )
 
 func EncodeBase64(in io.Reader) (string, errorsx.Error) {

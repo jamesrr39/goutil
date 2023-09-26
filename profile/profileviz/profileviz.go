@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/jamesrr39/goutil/errorsx"
+	"github.com/jamesrr39/go-errorsx"
 	"github.com/jamesrr39/goutil/profile"
 	"github.com/jamesrr39/goutil/streamtostorage"
 )

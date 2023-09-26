@@ -11,7 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/uuid"
-	"github.com/jamesrr39/goutil/errorsx"
+	"github.com/jamesrr39/go-errorsx"
 )
 
 type key int

@@ -12,10 +12,11 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0
+	github.com/jamesrr39/go-errorsx v0.0.0-20230202224242-c4eca1581e78 // indirect
 	github.com/jamesrr39/semaphore v0.0.0-20180521202200-0d5ddc396086
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/spf13/afero v1.6.0
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.4
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	modernc.org/ql v1.3.1
 )
