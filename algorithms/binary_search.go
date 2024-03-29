@@ -2,6 +2,7 @@ package algorithms
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 )
 
@@ -9,44 +10,84 @@ import (
 type SearchResult int
 
 const (
+	SearchResultUnknown SearchResult = iota
 	// SearchResultFound indicates the desired result has been found and the search should terminate
-	SearchResultFound SearchResult = iota
+	SearchResultFound
 	// SearchResultGoLower indicates the search should look lower
 	SearchResultGoLower
 	// SearchResultGoHigher indicates the search should look higher
 	SearchResultGoHigher
-	// SearchResultInvalid indicates the search was invalid.
+)
+
+var (
 	// This can mean that a list with 0 items was passed in.
-	SearchResultInvalid
+	ErrSearchResultInvalid = errors.New("ErrSearchResultInvalid")
 )
 
 // BinarySearchFunc is a caller-supplied function that tells the Binary Search function to go higher or lower
-type BinarySearchFunc func(i int) SearchResult
+type BinarySearchFunc[T numberType] func(i T) (SearchResult, error)
 
-const (
-	// maxBinarySearchIterations is the maximum amount of iterations allowed before a panic is created.
-	// since the worst case time complexity of binary search is log(2)n, n = 100000 allows for a huge amount of items to be tested
-	maxBinarySearchIterations = 100000
-)
+func makeDefaultBinarySearchOpts() BinarySearchOptions {
+	return BinarySearchOptions{
+		MaxIterations: 100000,
+	}
+}
+
+type BinarySearchOptions struct {
+	MaxIterations int64
+}
+
+func mergeOpts(passedInOptions *BinarySearchOptions) BinarySearchOptions {
+	if passedInOptions == nil {
+		return makeDefaultBinarySearchOpts()
+	}
+
+	opts := makeDefaultBinarySearchOpts()
+
+	if passedInOptions.MaxIterations != 0 {
+		opts.MaxIterations = passedInOptions.MaxIterations
+	}
+
+	return opts
+}
+
+type BinarySearchResult[T numberType] struct {
+	LastIndexChecked T
+	LastResult       SearchResult
+}
+
+type numberType interface {
+	int | uint | int8 | uint8 | int16 | uint16 | int32 | uint32 | int64 | uint64
+}
 
 // BinarySearch performs a binary search on a given list size and binary search function
-// It returns the index of the last value tested it could find, and the last result, indicating whether the value was found exactly, or if it was higher or lower than the last value tested
-func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, SearchResult) {
-	if listSize == 0 {
+// please note, the exact value you search for may not be found - please check the BinarySearchResult value
+func BinarySearch[T numberType](listSize T, binarySearchFunc BinarySearchFunc[T], passedInOptions *BinarySearchOptions) (BinarySearchResult[T], error) {
+	options := mergeOpts(passedInOptions)
+
+	if int(listSize) == 0 {
 		// handle special case
-		return 0, SearchResultInvalid
+		return BinarySearchResult[T]{}, ErrSearchResultInvalid
 	}
 
 	// lowest and highest possible indexes
-	lowerBound := 0
+	var lowerBound T = 0
 	upperBound := listSize - 1
 	i := (listSize - 1) / 2 // start halfway through the set
 
-	for iterations := 0; iterations < maxBinarySearchIterations; iterations++ {
-		result := binarySearchFunc(i)
+	for iterations := 0; iterations < int(options.MaxIterations); iterations++ {
+		result, err := binarySearchFunc(i)
+		if err != nil {
+			return BinarySearchResult[T]{}, err
+		}
+
 		switch result {
 		case SearchResultFound:
-			return i, result
+			return BinarySearchResult[T]{
+				LastIndexChecked: i,
+				LastResult:       result,
+			}, nil
+			// return i, result
 		case SearchResultGoLower:
 			// what we're searching for is below i
 			// so set upperBound to be i - 1
@@ -58,26 +99,29 @@ func BinarySearch(listSize int, binarySearchFunc BinarySearchFunc) (int, SearchR
 		}
 		if lowerBound > upperBound {
 			// we've exhausted the search space without finding anything
-			return i, result
+			return BinarySearchResult[T]{
+				LastIndexChecked: i,
+				LastResult:       result,
+			}, nil
 		}
 		i = (lowerBound + upperBound) / 2
 
 	}
-	panic(fmt.Sprintf("maxBinarySearchIterations (%d) reached", maxBinarySearchIterations))
+	panic(fmt.Sprintf("maxBinarySearchIterations (%d) reached", options.MaxIterations))
 }
 
 // CreateByteComparatorFunc creates a comparator function for keys of type []byte
-func CreateByteComparatorFunc(needle []byte, getListValueAtIndex func(index int) []byte) BinarySearchFunc {
-	return func(index int) SearchResult {
+func CreateByteComparatorFunc[T numberType](needle []byte, getListValueAtIndex func(index T) []byte) BinarySearchFunc[T] {
+	return func(index T) (SearchResult, error) {
 		compareResult := bytes.Compare(needle, getListValueAtIndex(index))
 		switch compareResult {
 		case 0:
-			return SearchResultFound
+			return SearchResultFound, nil
 		case 1:
-			return SearchResultGoHigher
+			return SearchResultGoHigher, nil
 		case -1:
-			return SearchResultGoLower
+			return SearchResultGoLower, nil
 		}
-		panic(fmt.Sprintf("unexpected bytes.Compare result: %d", compareResult))
+		return 0, fmt.Errorf("unexpected bytes.Compare result: %d", compareResult)
 	}
 }

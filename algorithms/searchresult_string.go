@@ -8,15 +8,15 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[SearchResultFound-0]
-	_ = x[SearchResultGoLower-1]
-	_ = x[SearchResultGoHigher-2]
-	_ = x[SearchResultInvalid-3]
+	_ = x[SearchResultUnknown-0]
+	_ = x[SearchResultFound-1]
+	_ = x[SearchResultGoLower-2]
+	_ = x[SearchResultGoHigher-3]
 }
 
-const _SearchResult_name = "SearchResultFoundSearchResultGoLowerSearchResultGoHigherSearchResultInvalid"
+const _SearchResult_name = "SearchResultUnknownSearchResultFoundSearchResultGoLowerSearchResultGoHigher"
 
-var _SearchResult_index = [...]uint8{0, 17, 36, 56, 75}
+var _SearchResult_index = [...]uint8{0, 19, 36, 55, 75}
 
 func (i SearchResult) String() string {
 	if i < 0 || i >= SearchResult(len(_SearchResult_index)-1) {
